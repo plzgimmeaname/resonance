@@ -1,0 +1,17 @@
+services:
+  resonance:
+    build: .
+    image: resonance
+    # only reachable from this computer
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3000"
+      BASE_URL: http://127.0.0.1:3000
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

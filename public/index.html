@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e0f13">
+  <title>Resonance</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">resonance</div>
+    <nav id="tabs" hidden>
+      <button data-tab="feed" class="active">Feed</button>
+      <button data-tab="stats">Stats</button>
+      <button data-tab="discover">Discover</button>
+      <button data-tab="blend">Blend</button>
+      <span id="ind"></span>
+    </nav>
+    <div id="account" hidden></div>
+  </header>
+
+  <main>
+    <div id="banner" class="banner" hidden></div>
+
+    <section id="connect" hidden>
+      <h1>Your music, understood.</h1>
+      <p class="sub">Connect Spotify to get listening stats, fresh recommendations, and a feed tuned to your taste.</p>
+      <p id="setup" class="sub" style="margin:0 auto" hidden>This site isn't set up yet. The admin needs to add a Spotify Client ID first. <a href="/admin">Admin sign-in →</a></p>
+      <a id="spotify-btn" class="btn" href="/auth/spotify/login" hidden>Connect Spotify</a>
+      <p class="sub" style="font-size:13px;margin:18px auto 0"><a href="/admin">admin</a></p>
+    </section>
+
+    <section id="view-feed" class="view" hidden>
+      <div class="row"><h1>Your feed</h1><button class="ghost" id="notify" hidden>🔔 Release alerts</button><button class="ghost" data-refresh="feed">↻ Refresh</button></div>
+      <div id="feed" class="feed"></div>
+    </section>
+
+    <section id="view-stats" class="view" hidden>
+      <div class="row">
+        <h1>Your stats</h1>
+        <div id="range" class="seg">
+          <button data-range="short">4 weeks</button>
+          <button data-range="medium" class="active">6 months</button>
+          <button data-range="long">All time</button>
+        </div>
+        <button class="ghost" id="share">⤓ Share card</button>
+      </div>
+      <div id="stats"></div>
+    </section>
+
+    <section id="view-discover" class="view" hidden>
+      <div class="row">
+        <h1>Discover</h1>
+        <div id="mode" class="seg">
+          <button data-mode="similar" class="active">Similar</button>
+          <button data-mode="now">Right now</button>
+          <button data-mode="adventurous">Adventurous</button>
+          <button data-mode="deepcuts">Deep cuts</button>
+        </div>
+        <button class="ghost" data-refresh="discover">↻ Shuffle</button>
+        <button class="ghost" id="save-pl">＋ Save as playlist</button>
+      </div>
+      <div id="recs" class="grid"></div>
+    </section>
+
+    <section id="view-blend" class="view" hidden>
+      <div class="row"><h1>Blend</h1></div>
+      <p class="sub" style="margin-top:0">Compare taste with a friend. Swap codes (they run their own copy of this app), paste theirs, and see how compatible you are.</p>
+      <div class="cols">
+        <div class="panel"><h3>Your taste code</h3><textarea id="mycode" readonly rows="4" placeholder="Loading…"></textarea><button class="ghost" id="copycode">Copy</button></div>
+        <div class="panel"><h3>Friend's code</h3><textarea id="theircode" rows="4" placeholder="Paste a friend's code here"></textarea><button class="btn" id="compare">Compare</button></div>
+      </div>
+      <div id="blend-result"></div>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Resonance admin</title>
+  <link rel="icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <div class="brand">resonance <span class="tag">admin</span></div>
+    <nav id="tabs" hidden>
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="users">Users</button>
+      <button data-tab="usage">Usage</button>
+      <button data-tab="settings">Settings</button>
+      <button data-tab="tools">Tools</button>
+      <span id="ind"></span>
+    </nav>
+    <a href="/" class="ghost" style="text-decoration:none;margin-left:auto">← site</a>
+    <button class="ghost" id="signout" hidden>Sign out</button>
+  </header>
+  <main>
+    <div id="banner" class="banner" hidden></div>
+
+    <section id="auth" class="view" hidden>
+      <div class="auth-card">
+        <h1 id="auth-title">Admin</h1>
+        <p class="sub" id="auth-sub"></p>
+        <form id="auth-form">
+          <input id="auth-code" placeholder="Setup code from the terminal" autocomplete="off" hidden>
+          <input id="auth-pw" type="password" placeholder="Password" autocomplete="current-password">
+          <button class="btn" type="submit" id="auth-btn">Continue</button>
+        </form>
+      </div>
+    </section>
+
+    <section id="dash" hidden>
+      <div id="view" class="view"></div>
+    </section>
+  </main>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
