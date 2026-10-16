@@ -8,6 +8,7 @@ const store = {
 
 const state = { tab: "feed", range: "medium", mode: "similar", status: null, me: null, recs: [], stats: null };
 
+// all backend calls go through here, 401 means not logged in
 async function api(path, opts) {
   const r = await fetch(path, opts);
   if (r.status === 401) throw Object.assign(new Error("not_connected"), { code: 401 });
@@ -19,6 +20,7 @@ const post = (path, body) => api(path, { method: "POST", headers: { "Content-Typ
 
 const skeleton = (el, tiles) => { el.innerHTML = `<div class="sk${tiles ? " tiles" : ""}">${"<i></i>".repeat(tiles ? 8 : 6)}</div>`; };
 const reveal = (el) => { el.classList.add("reveal"); [...el.children].forEach((c, i) => c.style.setProperty("--i", i)); };
+// animates numbers counting up
 function countUp(root) {
   root.querySelectorAll("[data-count]").forEach((el) => {
     const end = Number(el.dataset.count), suffix = el.dataset.suffix || "", t0 = performance.now();
@@ -55,6 +57,7 @@ async function init() {
   }
   state.status = await api("/api/status");
   $("#setup").hidden = state.status.configured;
+  $("#reporting").hidden = !state.status.reporting;
   $("#spotify-btn").hidden = !state.status.configured;
   if (!state.status.connected) return showConnect();
   try { state.me = await api("/api/me"); } catch { return showConnect(); }

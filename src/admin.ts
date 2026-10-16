@@ -25,6 +25,7 @@ export function captureLogs() {
   }
 }
 
+// small db helpers, rows = many, one = single row
 const DAY = 864e5;
 const rows = <T>(sql: string, ...p: (string | number)[]) => db.prepare(sql).all(...p) as unknown as T[];
 const one = <T>(sql: string, ...p: (string | number)[]) => db.prepare(sql).get(...p) as unknown as T;
@@ -38,7 +39,6 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
   const api = express.Router();
   const ip = (req: Request) => req.socket.remoteAddress ?? "?";
 
-  /* ----- sign in / setup ----- */
   api.get("/state", (req, res) => {
     res.json({ setup: !adminExists(), signedIn: isAdmin(req) });
   });
@@ -75,6 +75,7 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
     res.json({ ok: true });
   });
 
+  // everything below needs the admin cookie
   api.use(requireAdmin);
 
   api.post("/password", (req, res) => {
@@ -87,7 +88,6 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
     res.json({ ok: true });
   });
 
-  /* ----- overview / usage ----- */
   api.get("/overview", (_req, res) => {
     const now = Date.now();
     const users = rows<Record<string, unknown>>(
@@ -99,6 +99,7 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
       now, now - 7 * DAY,
     );
 
+    // fill in days with no logins so the chart has 14 bars
     const logins = rows<{ d: string; n: number }>(
       "select strftime('%Y-%m-%d', ts / 1000, 'unixepoch') d, count(*) n from events where kind = 'login' and ts > ? group by d",
       now - 14 * DAY,
@@ -136,6 +137,7 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
 
     res.json({
       users,
+      remote: rows("select instance, user_id, name, created_at, last_seen, plays, connected, reported_at from remote_users order by last_seen desc"),
       loginsByDay,
       api: { ...apiTotals, callsByHour, byPath },
       features,
@@ -153,12 +155,13 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
     });
   });
 
-  /* ----- settings (api keys) ----- */
   api.get("/settings", (_req, res) =>
     res.json({
       clientId: getSetting("clientId"),
       city: getSetting("city"),
       country: getSetting("country"),
+      reportUrl: getSetting("reportUrl"),
+      reportKey: Boolean(getSetting("reportKey")),
       set: { lastfm: Boolean(getSetting("lastfm")), ticketmaster: Boolean(getSetting("ticketmaster")), anthropic: Boolean(getSetting("anthropic")) },
       redirectUri: hooks.redirectUri,
     }),
@@ -170,9 +173,9 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
       return res.status(400).json({ error: "That doesn't look like a Spotify Client ID (it's 32 letters and numbers)." });
     const before = getSetting("clientId");
     const patch: Partial<Record<SettingKey, string>> = {};
-    for (const k of ["clientId", "lastfm", "ticketmaster", "city", "country", "anthropic"] as SettingKey[]) {
+    for (const k of ["clientId", "lastfm", "ticketmaster", "city", "country", "anthropic", "reportUrl", "reportKey"] as SettingKey[]) {
       // a blank secret field means "leave unchanged"; "-" clears it
-      if (body[k] === undefined || (body[k] === "" && ["lastfm", "ticketmaster", "anthropic"].includes(k))) continue;
+      if (body[k] === undefined || (body[k] === "" && ["lastfm", "ticketmaster", "anthropic", "reportKey"].includes(k))) continue;
       patch[k] = body[k] === "-" ? "" : body[k];
     }
     saveSettings(patch);
@@ -183,13 +186,13 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
     res.json({ ok: true });
   });
 
-  /* ----- users ----- */
   api.post("/users/:id/disconnect", (req, res) => {
     db.prepare("update users set access = null, refresh = null, connected = 0 where id = ?").run(req.params.id);
     db.prepare("delete from sessions where user_id = ?").run(req.params.id);
     hooks.clearCache();
     res.json({ ok: true });
   });
+  // blocking also kills sessions and tokens
   api.post("/users/:id/block", (req, res) => {
     const blocked = req.body?.blocked ? 1 : 0;
     db.prepare("update users set blocked = ? where id = ?").run(blocked, req.params.id);
@@ -207,7 +210,6 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
     res.json({ ok: true });
   });
 
-  /* ----- maintenance ----- */
   api.post("/maintenance", async (req, res) => {
     const { action, userId } = req.body as { action?: string; userId?: string };
     try {
@@ -234,7 +236,6 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
     }
   });
 
-  /* ----- exports ----- */
   api.get("/export/plays.csv", (_req, res: Response) => {
     const data = rows<Record<string, unknown>>("select u.name user, p.played_at, p.name track, p.artist, p.album, p.duration from plays p left join users u on u.id = p.user_id order by p.played_at");
     res.type("text/csv").attachment("plays.csv").send(toCsv(["user", "played_at", "track", "artist", "album", "duration_ms"], data.map((r) => Object.values(r))));

@@ -16,9 +16,9 @@ Several people can use one copy, each with their own private stats and history. 
 You need three things:
 
 1. **A Spotify Premium account.** Since February 2026, Spotify only lets Premium subscribers create a developer app, and the app stops working if the subscription lapses. The Premium account must be the one that owns the developer app (Step 1). Other people you add (up to 5) can have free accounts.
-2. **Node.js**, a free program that runs this app.
-   - Go to https://nodejs.org, download the **LTS** version, and install it like any other app.
-   - To check it worked: open a terminal (see below) and type `node -v`. You should see a number like `v22.13.0` or higher.
+2. **Docker Desktop**, a free program that runs the app in a sealed box (no other installs needed).
+   - Download it from https://www.docker.com/products/docker-desktop, install it like any other app, and open it so it's running.
+   - To check it worked: open a terminal (see below) and type `docker -v`. You should see a version number.
 3. **This folder** (`resonance`), which you already have.
 
 ### What's a terminal?
@@ -56,34 +56,43 @@ The Premium requirement applies to whoever *owns* the developer app, not to the 
 
 Then you use their Client ID in Step 2 and log in with your own Spotify account. Your listening data stays yours. Their account is never involved after setup, but their Premium must stay active or the app stops working for everyone.
 
-## Step 2: Install and start the app
+## Step 2: Build and start the app
 
 1. Open a terminal and go into this folder. Type this and press Enter (change the path if your folder is somewhere else):
    ```
    cd /Users/n00b/Coding/resonance
    ```
-2. Install what the app needs (only needed once, takes about a minute):
+2. Build and start it (the first build takes a couple of minutes):
    ```
-   npm install
+   docker compose up -d --build
    ```
-3. Start it:
+3. Find the admin setup code. Run:
    ```
-   npm start
+   docker compose logs
    ```
-4. Look at what the terminal prints. You'll see `Resonance running` and, the first time only, a line like:
+   Look for a line like:
    ```
    admin setup code: 3f9a1c2b
    ```
-   Keep that window open and remember where that code is. You need it in a moment.
+   You need it in a moment. It's printed every start until the admin account exists.
 
-To stop the app later, click the terminal and press `Ctrl + C`. Next time, just `cd` into the folder and `npm start` again.
+The app keeps running in the background (and restarts with Docker). It is only reachable from your own computer, not other devices on your network.
+
+| Do this | Command |
+|---|---|
+| See logs | `docker compose logs -f` |
+| Stop it | `docker compose down` |
+| Start it again | `docker compose up -d` |
+| Update after changing code | `docker compose up -d --build` |
+
+Your history and login are saved in the `data` folder next to this README, so they survive restarts and rebuilds.
 
 ---
 
 ## Step 3: Create the admin account
 
 1. In your browser, open **http://127.0.0.1:3000/admin**. (Type it exactly like that. **Don't use `localhost`**, because Spotify won't allow it.)
-2. Paste the **setup code** from the terminal, choose a password (8 or more characters), and click **Continue**.
+2. Paste the **setup code** from the logs, choose a password (8 or more characters), and click **Continue**.
 
 The setup code is there so a stranger can't claim the admin account before you do. It's only needed this once.
 
@@ -116,7 +125,7 @@ Open **/admin** any time and sign in with your admin password. It has five tabs:
 
 The backup file has Spotify tokens, API keys and the admin password stripped out, so it's safe to keep.
 
-**Forgot the admin password?** Stop the app, open the database file `data/resonance.db` with any SQLite tool and run `delete from kv where k = 'admin';`, then start the app again. It prints a new setup code. (This also removes saved API keys, so enter them again.)
+**Forgot the admin password?** Run `docker compose down`, open the database file `data/resonance.db` with any SQLite tool and run `delete from kv where k = 'admin';`, then run `docker compose up -d`. It prints a new setup code in `docker compose logs`. (This also removes saved API keys, so enter them again.)
 
 ---
 
@@ -138,47 +147,27 @@ The backup file has Spotify tokens, API keys and the admin password stripped out
 
 | What you see | What to do |
 |---|---|
-| `command not found: node` or `npm` | Node isn't installed (or reopen the terminal after installing). See "Before you start". |
+| `command not found: docker` | Docker Desktop isn't installed (or reopen the terminal after installing). See "Before you start". |
+| `Cannot connect to the Docker daemon` | Open Docker Desktop and wait until it says it's running. |
 | `command not found: cd` / `No such file or directory` | The folder path is wrong. Drag the folder into the terminal window to paste its path after `cd `. |
 | Home page says the site isn't set up | The admin hasn't added the Client ID yet. See Steps 3 and 4. |
-| I lost the admin setup code | Stop and start the app again; it prints the code every start until the admin account exists. |
+| I lost the admin setup code | Run `docker compose logs`; the code is printed every start until the admin account exists. |
 | Spotify says `INVALID_CLIENT: Invalid redirect URI` | The Redirect URI in the Spotify dashboard isn't exactly `http://127.0.0.1:3000/auth/spotify/callback`. |
 | Errors (403) from Spotify even though login worked | The account that owns the developer app needs an active **Premium** plan. |
 | Spotify says you're not registered / login fails | Add your name and Spotify email under **User Management** (Step 1.5). |
-| `address already in use` | Something else uses port 3000. Close the other copy of the app, or create a `.env` file with `PORT=3001` and `BASE_URL=http://127.0.0.1:3001`, then use port 3001 in your browser and in the Redirect URI. |
+| `port is already allocated` | Something else uses port 3000. Close it, or in `docker-compose.yml` change the port mapping, `PORT` and `BASE_URL` to 3001, then use port 3001 in your browser and in the Redirect URI. |
 | A section says "Something went wrong" | Wait 30 seconds and press the refresh button on that page. Spotify sometimes rate limits. |
 
 ---
 
-## Running with Docker (optional)
+## Seeing accounts from other copies
 
-Docker runs the app in a sealed box, so you don't need to install Node. Do Step 1 first (get your Client ID), then:
+If friends run their own copy with the **same Client ID**, their accounts can show up in your admin panel (Users tab, "Other copies"). One copy collects, the others report to it:
 
-1. Install **Docker Desktop** from https://www.docker.com/products/docker-desktop and open it so it's running.
-2. In the terminal, inside this folder, run:
-   ```
-   docker compose up -d --build
-   ```
-   The first build takes a couple of minutes.
-3. Find the admin setup code: run `docker compose logs` and look for `admin setup code:`.
-4. Do Steps 3 to 5 above (admin account, Client ID, sign in). Use **http://127.0.0.1:3000/admin** for the admin panel.
+1. **Your copy** must be reachable over https (for example through a tunnel such as Cloudflare Tunnel). In **Settings**, set a **Shared key** and leave the collector URL empty.
+2. **Their copies**: in **Settings** (or `.env` as `REPORT_URL` and `REPORT_KEY`), set the collector URL to your copy's address and the same key.
 
-Useful commands:
-
-| Do this | Command |
-|---|---|
-| See logs | `docker compose logs -f` |
-| Stop it | `docker compose down` |
-| Start it again | `docker compose up -d` |
-| Update after changing code | `docker compose up -d --build` |
-
-Your history and login are saved in the `data` folder next to this README, so they survive restarts and rebuilds. The app is only reachable from your own computer (not from other devices on your network).
-
-No Compose? Build and run it directly:
-```
-docker build -t resonance .
-docker run -d -p 127.0.0.1:3000:3000 -v "$(pwd)/data:/data" resonance
-```
+Reporting sends only a Spotify name and ID, join and last-seen times and a play count, every 15 minutes. Never tokens or listening history. Copies that report show this in a notice on their connect page, and leaving the URL empty turns it off.
 
 ## Optional extras (skip these at first)
 
@@ -188,7 +177,7 @@ Add these in the admin panel under **Settings** to switch on more features:
 - **Ticketmaster API key** (plus city and country): shows concerts from your top artists in the feed (free at https://developer.ticketmaster.com)
 - **Anthropic API key**: adds a "Why?" button that explains each recommendation, and a short summary of your taste
 
-(Advanced: any of these, and `SPOTIFY_CLIENT_ID`, can also be set as environment variables or in a `.env` file. Values saved in the admin panel win.)
+(Advanced: any of these, and `SPOTIFY_CLIENT_ID`, can also be set in a `.env` file next to `docker-compose.yml`, then `docker compose up -d`. Values saved in the admin panel win.)
 
 ---
 
@@ -203,4 +192,4 @@ Add these in the admin panel under **Settings** to switch on more features:
 - `Dockerfile`, `docker-compose.yml`: container setup (listens on `HOST`, default `127.0.0.1`)
 - `public/`: the web UI (plain HTML, CSS and JS)
 
-Spotify removed several API features for new apps (recommendations, audio features, popularity, batch lookups) and caps search at 10 results. Resonance builds recommendations from your genre profile plus search, filtered against what you already play. `npm run typecheck` checks the TypeScript, and `npm run build` compiles it to `dist/`.
+Spotify removed several API features for new apps (recommendations, audio features, popularity, batch lookups) and caps search at 10 results. Resonance builds recommendations from your genre profile plus search, filtered against what you already play. `npm run typecheck` checks the TypeScript, and `npm run build` compiles it to `dist/` (this needs Node.js; Docker users don't need it). `src/remote.ts`: reporting between copies.

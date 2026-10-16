@@ -9,6 +9,7 @@ import { addFeedback, db, deleteUserData, logEvent } from "./db.js";
 import { blendTracks, buildFeed, buildTaste, compare, computeStats, explain, exportTaste, recommend, summarize, type RecMode, type Taste, type TasteCode } from "./engine.js";
 import { features, findPreview } from "./extras.js";
 import { startPoller, syncHistory } from "./history.js";
+import { isReporting, registerCollector, sendReport } from "./remote.js";
 import { getSetting } from "./settings.js";
 import { Blocked, clientId, finishLogin, hasPlaylistScope, isConnected, loginUrl, NotConnected, spotify } from "./spotify.js";
 import type { Range } from "./types.js";
@@ -31,7 +32,7 @@ app.use((req, res, next) => {
 });
 app.use(userSession);
 
-/* cache (per user) */
+// per user cache with a ttl, cleared by the admin tools
 const cache = new Map<string, { at: number; value: unknown }>();
 const clearCache = () => {
   const n = cache.size;
@@ -49,10 +50,12 @@ async function cached<T>(key: string, ttlMs: number, fn: () => Promise<T>): Prom
 }
 const taste = () => cached<Taste>("taste", 5 * 60_000, buildTaste);
 
+// collector takes reports from other copies, admin serves the admin panel
+registerCollector(app);
 registerAdmin(app, { clearCache, cacheSize: () => cache.size, redirectUri: REDIRECT, publicDir });
 app.use(express.static(publicDir));
 
-/* auth */
+// spotify login: send them to spotify, then handle the callback
 app.get("/auth/spotify/login", (_req, res) => {
   if (!clientId()) return res.redirect("/?error=no_client_id");
   res.redirect(loginUrl(REDIRECT));
@@ -66,6 +69,7 @@ app.get("/auth/spotify/callback", async (req, res) => {
     startUserSession(res, userId);
     logEvent("login", "", userId);
     runAs(userId, () => syncHistory()).catch(() => {});
+    sendReport();
     res.redirect("/");
   } catch (e) {
     if (e instanceof Blocked) return res.redirect("/?error=blocked");
@@ -86,10 +90,11 @@ app.post("/auth/delete-me", (req, res) => {
   endUserSession(req, res);
   runAs(id, () => invalidate());
   deleteUserData(id);
+  sendReport();
   res.json({ ok: true });
 });
 
-/* api */
+// wraps api routes: needs a logged in user, logs the feature use, maps errors to 401/500
 const wrap = (kind: string | null, fn: (req: Request) => Promise<unknown>) => async (req: Request, res: Response, next: NextFunction) => {
   if (!req.userId) return res.status(401).json({ error: "not_connected" });
   await runAs(req.userId, async () => {
@@ -108,7 +113,7 @@ const wrap = (kind: string | null, fn: (req: Request) => Promise<unknown>) => as
 };
 
 app.get("/api/status", (req, res) => {
-  const base = { configured: Boolean(clientId()), features: features(), redirectUri: REDIRECT };
+  const base = { configured: Boolean(clientId()), features: features(), reporting: isReporting(), redirectUri: REDIRECT };
   if (!req.userId) return res.json({ ...base, connected: false, playlistScope: false, user: null });
   runAs(req.userId, () => {
     const user = db.prepare("select id, name, image from users where id = ?").get(req.userId!);

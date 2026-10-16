@@ -1,3 +1,4 @@
+import { sendReport } from "./remote.js";
 import { runAs } from "./context.js";
 import { artistGenres, db, pruneOld, upsertArtist } from "./db.js";
 import { buildTaste, snapshotGenres } from "./engine.js";
@@ -49,8 +50,11 @@ export async function syncAll(): Promise<number> {
   return total;
 }
 
+// background jobs: sync plays and report every 15 min, prune old logs every 6h
 export function startPoller() {
   setTimeout(() => syncAll().catch(() => {}), 3000);
+  setTimeout(() => sendReport(), 5000);
+  setInterval(() => sendReport(), 15 * 60_000).unref();
   setInterval(() => syncAll().catch(() => {}), 15 * 60_000).unref();
   setInterval(() => pruneOld(), 6 * 3600_000).unref();
   pruneOld();

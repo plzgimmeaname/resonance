@@ -29,6 +29,9 @@ db.exec(`
   create table if not exists feedback(user_id text, kind text, value text, score integer, primary key(user_id, kind, value));
   create table if not exists events(ts integer, user_id text, kind text, detail text);
   create table if not exists spotify_calls(ts integer, user_id text, path text, status integer, ms integer);
+  create table if not exists remote_users(
+    instance text, user_id text, name text, created_at integer, last_seen integer, plays integer, connected integer, reported_at integer,
+    primary key(instance, user_id));
   create index if not exists events_ts on events(ts);
   create index if not exists calls_ts on spotify_calls(ts);
 `);

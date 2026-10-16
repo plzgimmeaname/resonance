@@ -2,6 +2,7 @@ const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s = "") => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
+// current tab and the last overview data
 const state = { tab: "overview", data: null };
 
 async function api(path, opts) {
@@ -56,7 +57,6 @@ const hist = (vals, labels) => {
 };
 const bar = (name, v, max, i) => `<div class="bar" style="--i:${i}"><div class="name" title="${esc(name)}">${esc(name)}</div><div class="track"><div class="fill" style="width:${(v / max) * 100}%"></div></div><div class="v">${v}</div></div>`;
 
-/* auth */
 async function boot() {
   window.addEventListener("resize", moveIndicator);
   const s = await api("/state");
@@ -96,6 +96,7 @@ function enter() {
 $("#signout").addEventListener("click", async () => { await post("/logout"); location.reload(); });
 $("#tabs").addEventListener("click", (e) => e.target.dataset.tab && show(e.target.dataset.tab));
 
+// loads data for a tab and draws it, a 401 sends you back to sign in
 async function show(tab) {
   state.tab = tab;
   $$("#tabs button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
@@ -113,7 +114,6 @@ async function show(tab) {
 }
 const refresh = () => show(state.tab);
 
-/* overview */
 function renderOverview(el, d) {
   const connected = d.users.filter((u) => u.connected && !u.blocked).length;
   el.innerHTML = `
@@ -135,7 +135,6 @@ function renderOverview(el, d) {
   reveal(el); countUp(el);
 }
 
-/* users */
 function renderUsers(el, d) {
   el.innerHTML = `
     <div class="row"><h1>Users</h1><button class="ghost" id="refresh">↻ Refresh</button></div>
@@ -152,6 +151,14 @@ function renderUsers(el, d) {
         <button class="ghost mini" data-act="${u.blocked ? "unblock" : "block"}">${u.blocked ? "Unblock" : "Block"}</button>
         <button class="ghost mini danger" data-act="delete">Delete</button></div></td></tr>`).join("") || `<tr><td colspan="7"><div class="empty">Nobody has signed in yet.</div></td></tr>`}
     </tbody></table></div>`;
+  if (d.remote.length) el.insertAdjacentHTML("beforeend", `
+    <h3 style="margin:36px 0 6px">Other copies (same Client ID)</h3>
+    <p class="sub" style="margin-top:0">Accounts reported by copies of the app running elsewhere. Unverified and read-only; they refresh every 15 minutes.</p>
+    <div class="scroll"><table class="tbl"><thead><tr><th>User</th><th>Copy</th><th>Status</th><th>Plays</th><th>Last seen</th><th>Joined</th><th>Reported</th></tr></thead><tbody>
+    ${d.remote.map((u) => `<tr><td>${esc(u.name)}<div style="color:var(--muted);font-size:12px">${esc(u.user_id)}</div></td><td>${esc(u.instance)}</td>
+      <td>${u.connected ? `<span class="pill ok">connected</span>` : `<span class="pill">disconnected</span>`}</td>
+      <td>${u.plays.toLocaleString()}</td><td>${ago(u.last_seen)}</td><td>${u.created_at ? new Date(u.created_at).toLocaleDateString() : ""}</td><td>${ago(u.reported_at)}</td></tr>`).join("")}
+    </tbody></table></div>`);
   $("#refresh").onclick = async () => { state.data = null; refresh(); };
   $$(".acts button", el).forEach((b) => (b.onclick = () => userAction(b)));
   reveal($("tbody", el));
@@ -173,7 +180,6 @@ async function userAction(btn) {
   } catch (e) { banner(esc(e.message)); }
 }
 
-/* usage */
 function renderUsage(el, d) {
   const s = d.system;
   el.innerHTML = `
@@ -205,7 +211,6 @@ function renderUsage(el, d) {
   reveal(el); countUp(el);
 }
 
-/* settings */
 async function renderSettings(el) {
   const s = await api("/settings");
   const hint = (k) => (s.set[k] ? ` <span style="color:var(--ok)">✓ set</span>` : "");
@@ -219,6 +224,10 @@ async function renderSettings(el) {
       <label>Ticketmaster API key${hint("ticketmaster")}<input name="ticketmaster" type="password" autocomplete="off" placeholder="concerts in the feed"></label>
       <div class="two"><label>City<input name="city" value="${esc(s.city)}" placeholder="optional"></label><label>Country<input name="country" value="${esc(s.country)}" placeholder="US"></label></div>
       <label>Anthropic API key${hint("anthropic")}<input name="anthropic" type="password" autocomplete="off" placeholder="“why?” explanations and taste summaries"></label>
+      <h3 style="margin:14px 0 0">Track other copies</h3>
+      <label>Collector URL<input name="reportUrl" value="${esc(s.reportUrl)}" placeholder="https://your-admin-copy.example.com" autocomplete="off" spellcheck="false"></label>
+      <label>Shared key${s.reportKey ? ` <span style="color:var(--ok)">✓ set</span>` : ""}<input name="reportKey" type="password" autocomplete="off" placeholder="optional, must match the collector"></label>
+      <p class="hint">On the copy that should see everyone (it must be reachable over https), leave the URL empty and set a key. On every other copy, enter that copy's URL and the same key; they share basic account info with it. All copies must use the same Client ID.</p>
       <p class="hint">Saved on the server only and never shown again. Leave a key blank to keep it; type <code>-</code> to remove it. Changing the Client ID signs everyone out.</p>
       <div><button class="btn" type="submit">Save settings</button></div>
     </form>
@@ -233,7 +242,7 @@ async function renderSettings(el) {
     e.preventDefault();
     const f = e.target;
     try {
-      await post("/settings", Object.fromEntries(["clientId", "lastfm", "ticketmaster", "city", "country", "anthropic"].map((k) => [k, f[k].value])));
+      await post("/settings", Object.fromEntries(["clientId", "lastfm", "ticketmaster", "city", "country", "anthropic", "reportUrl", "reportKey"].map((k) => [k, f[k].value])));
       banner("Settings saved.", true);
       renderSettings(el);
     } catch (err) { banner(esc(err.message)); }
@@ -246,7 +255,6 @@ async function renderSettings(el) {
   reveal($("#sf"));
 }
 
-/* tools */
 function renderTools(el) {
   const tool = (title, desc, action, label, extra = "") => `<div class="tool"><b>${title}</b><span>${desc}</span>${action ? `<button class="ghost" data-action="${action}">${label}</button>` : extra}</div>`;
   el.innerHTML = `

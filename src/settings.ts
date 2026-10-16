@@ -7,6 +7,8 @@ const KEYS = {
   city: "TICKETMASTER_CITY",
   country: "TICKETMASTER_COUNTRY",
   anthropic: "ANTHROPIC_API_KEY",
+  reportUrl: "REPORT_URL",
+  reportKey: "REPORT_KEY",
 } as const;
 export type SettingKey = keyof typeof KEYS;
 export const settingKeys = Object.keys(KEYS) as SettingKey[];

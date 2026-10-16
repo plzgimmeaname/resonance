@@ -14,10 +14,9 @@ function setCookie(res: Response, name: string, value: string, path: string, max
   res.append("Set-Cookie", `${name}=${encodeURIComponent(value)}; Path=${path}; HttpOnly; SameSite=Lax; Max-Age=${maxAgeSec}${secure ? "; Secure" : ""}`);
 }
 
-/* ------------------------------------------------------- user sessions */
-
 const USER_TTL = 30 * 864e5;
 
+// sessions: only a hash of the cookie token is stored in the db
 export function startUserSession(res: Response, userId: string) {
   const token = crypto.randomBytes(32).toString("base64url");
   const now = Date.now();
@@ -36,6 +35,7 @@ declare module "express-serve-static-core" {
   }
 }
 
+// runs on every request, finds the user from the cookie and updates last seen
 export function userSession(req: Request, res: Response, next: NextFunction) {
   const t = parseCookies(req).rid;
   if (t) {
@@ -53,13 +53,12 @@ export function userSession(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-/* --------------------------------------------------------------- admin */
-
 interface AdminRec {
   salt: string;
   hash: string;
 }
 const ADMIN_TTL = 12 * 3600_000;
+// scrypt hash so the password is never stored as is
 const hashPw = (pw: string, salt: string) => crypto.scryptSync(pw, salt, 64).toString("hex");
 
 export const adminExists = () => Boolean(kvGet<AdminRec>("admin"));
