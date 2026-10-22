@@ -1,0 +1,27 @@
+<section class="view">
+  <div class="row"><h1>Your feed</h1><button class="ghost" id="notify" hidden>🔔 Release alerts</button><button class="ghost" id="autoplay"></button><button class="ghost" id="refresh">↻ Refresh</button></div>
+  <div id="feed-filters" class="chips" style="margin-bottom:12px"></div>
+  <div id="feed" class="feed reels"></div>
+
+  <template id="t-filter"><button class="chip" data-slot="chip" style="cursor:pointer"></button></template>
+
+  <template id="t-insight">
+    <div class="item insight"><div class="why">Insight</div><div class="title" data-slot="title"></div><div class="by" data-slot="body"></div></div>
+  </template>
+
+  <template id="t-release">
+    <div class="item">
+      <slot name="cover"></slot>
+      <div class="meta"><div class="why" data-slot="why"></div><div class="title" data-slot="title"></div><div class="by" data-slot="by"></div></div>
+      <div class="actions"><a class="open" data-slot="open" target="_blank" rel="noopener">Open ↗</a></div>
+    </div>
+  </template>
+
+  <template id="t-track">
+    <div class="item">
+      <slot name="cover"></slot>
+      <div class="meta"><div class="why" data-slot="why"></div><div class="title" data-slot="title"></div><div class="by" data-slot="by"></div></div>
+      <slot name="actions"></slot>
+    </div>
+  </template>
+</section>

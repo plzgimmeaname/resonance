@@ -134,7 +134,9 @@ The backup file has Spotify tokens, API keys and the admin password stripped out
 - **Song previews**: every song has a **▶ Preview** button that plays a 30-second clip. Spotify no longer provides clips to new apps, so Resonance looks the song up on Apple's free iTunes catalog when you click. A few songs have no clip and show "No preview".
 - **Stats look empty?** Spotify only reveals your last 50 plays, so Resonance keeps its own record *while it's running*. Leave it running while you listen and your history builds up. "Right now" recommendations and "Taste over time" get better after a few days.
 - **Recommendations feel off?** Use 👍 and 👎. It learns what you like, and 👎 hides that artist.
-- **Saving a playlist didn't work?** Click **sign out** (top right) and connect again so Spotify can ask for playlist permission.
+- **Feed**: scroll through it one card at a time; songs autoplay as they come into view (toggle with the Autoplay button) and move on when the clip ends. Browsers may need one click on the page first.
+- **Add to a playlist**: every song has a **＋ Playlist** button that adds it to one of your existing playlists.
+- **Saving or adding to a playlist didn't work?** Click **sign out** (top right) and connect again so Spotify can ask for playlist permission.
 - **Blend with a friend**: copy your code from the Blend tab and send it to them, then paste theirs. It works between people on different copies of the app too.
 - **Your data**: **delete my data** (top right) wipes your history, votes and account from the site.
 - **Limit**: Spotify development-mode apps allow 5 users. More than that needs Spotify's approval, which they only give to registered businesses.
@@ -190,6 +192,10 @@ Add these in the admin panel under **Settings** to switch on more features:
 - `src/db.ts`: SQLite storage (`data/resonance.db`); `src/context.ts`: which user a request belongs to
 - `src/extras.ts`: optional Last.fm / Ticketmaster / Claude
 - `Dockerfile`, `docker-compose.yml`: container setup (listens on `HOST`, default `127.0.0.1`)
-- `public/`: the web UI (plain HTML, CSS and JS)
+- `public/`: the web UI (plain HTML, CSS and JS, no build step)
+  - `lib/router.js`: browser routing (`/feed`, `/stats?range=short`, `/admin/users`, …); each route is a page in `app/pages/` or `admin/pages/` made of an `.html` file (markup and `<template>`s) and a `.js` file exporting `mount(root, ctx)`
+  - `lib/dom.js`: helpers that clone templates and fill them with text and attributes (no `innerHTML`)
+  - `app/main.js`, `admin/main.js`: route tables and sign-in guards; `app/shared.js`, `admin/shared.js`: api calls and pieces several pages use
+  - adding a page: drop `name.html` + `name.js` into a pages folder, add it to the list in `main.js` and to the matching `app.get([...])` in `src/server.ts` or `src/admin.ts`
 
 Spotify removed several API features for new apps (recommendations, audio features, popularity, batch lookups) and caps search at 10 results. Resonance builds recommendations from your genre profile plus search, filtered against what you already play. `npm run typecheck` checks the TypeScript, and `npm run build` compiles it to `dist/` (this needs Node.js; Docker users don't need it). `src/remote.ts`: reporting between copies.

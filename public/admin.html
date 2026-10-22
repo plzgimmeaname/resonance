@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>Resonance admin</title>
-  <link rel="icon" href="icon.svg">
-  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="/icon.svg">
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <header>
     <div class="brand">resonance <span class="tag">admin</span></div>
     <nav id="tabs" hidden>
-      <button data-tab="overview" class="active">Overview</button>
-      <button data-tab="users">Users</button>
-      <button data-tab="usage">Usage</button>
-      <button data-tab="settings">Settings</button>
-      <button data-tab="tools">Tools</button>
+      <a href="/admin/overview">Overview</a>
+      <a href="/admin/users">Users</a>
+      <a href="/admin/usage">Usage</a>
+      <a href="/admin/settings">Settings</a>
+      <a href="/admin/tools">Tools</a>
       <span id="ind"></span>
     </nav>
     <a href="/" class="ghost" style="text-decoration:none;margin-left:auto">← site</a>
@@ -24,23 +24,23 @@
   </header>
   <main>
     <div id="banner" class="banner" hidden></div>
-
-    <section id="auth" class="view" hidden>
-      <div class="auth-card">
-        <h1 id="auth-title">Admin</h1>
-        <p class="sub" id="auth-sub"></p>
-        <form id="auth-form">
-          <input id="auth-code" placeholder="Setup code from the terminal" autocomplete="off" hidden>
-          <input id="auth-pw" type="password" placeholder="Password" autocomplete="current-password">
-          <button class="btn" type="submit" id="auth-btn">Continue</button>
-        </form>
-      </div>
-    </section>
-
-    <section id="dash" hidden>
-      <div id="view" class="view"></div>
-    </section>
+    <!-- the current page from admin/pages/ goes here -->
+    <div id="page"></div>
   </main>
-  <script type="module" src="admin.js"></script>
+
+  <!-- templates used by more than one page -->
+  <template id="t-stat">
+    <div class="stat"><div class="n" data-slot="n">0</div><div class="l" data-slot="l"></div></div>
+  </template>
+
+  <template id="t-bar">
+    <div class="bar" data-slot="bar"><div class="name" data-slot="name"></div><div class="track"><div class="fill" data-slot="fill"></div></div><div class="v" data-slot="v"></div></div>
+  </template>
+
+  <template id="t-err">
+    <div class="rank"><div class="t"><div data-slot="detail"></div><div data-slot="when"></div></div></div>
+  </template>
+
+  <script type="module" src="/admin/main.js"></script>
 </body>
 </html>

@@ -1,6 +1,12 @@
 // optional integrations, inactive unless a key is set
 import { getSetting } from "./settings.js";
 
+// ticketmaster results for a whole list of artists, soonest first
+export async function concertsFor(artists: string[]): Promise<ConcertEvent[]> {
+  const all = await Promise.all(artists.map((a) => upcomingEvents(a).catch(() => [])));
+  return all.flat().sort((a, b) => a.date.localeCompare(b.date));
+}
+
 export const features = () => ({ lastfm: Boolean(getSetting("lastfm")), concerts: Boolean(getSetting("ticketmaster")), ai: Boolean(getSetting("anthropic")) });
 
 export async function similarArtists(name: string, limit = 8): Promise<string[]> {
@@ -12,6 +18,36 @@ export async function similarArtists(name: string, limit = 8): Promise<string[]>
   if (!r.ok) return [];
   const d: any = await r.json();
   return (d.similarartists?.artist ?? []).map((a: any) => a.name as string);
+}
+
+export interface ArtistInfo {
+  name: string;
+  listeners: number;
+  tags: string[];
+  bio: string;
+  similar: string[];
+  url: string;
+}
+
+// last.fm artist page data for the stats deep dive
+export async function artistInfo(name: string): Promise<ArtistInfo | null> {
+  const LASTFM = getSetting("lastfm");
+  if (!LASTFM) return null;
+  const u = new URL("https://ws.audioscrobbler.com/2.0/");
+  u.search = new URLSearchParams({ method: "artist.getinfo", artist: name, api_key: LASTFM, format: "json", autocorrect: "1" }).toString();
+  const r = await fetch(u);
+  if (!r.ok) return null;
+  const a: any = (await r.json()).artist;
+  if (!a) return null;
+  return {
+    name: a.name,
+    listeners: Number(a.stats?.listeners ?? 0),
+    tags: (a.tags?.tag ?? []).map((t: any) => t.name as string).slice(0, 5),
+    // bio ends with a last.fm link, strip tags and that link
+    bio: String(a.bio?.summary ?? "").replace(/<a .*$/s, "").replace(/<[^>]+>/g, "").trim(),
+    similar: (a.similar?.artist ?? []).map((s: any) => s.name as string).slice(0, 5),
+    url: a.url,
+  };
 }
 
 export interface ConcertEvent {
@@ -66,13 +102,13 @@ export async function findPreview(name: string, artist: string): Promise<string 
   return url;
 }
 
-export async function askClaude(prompt: string): Promise<string | null> {
+export async function askClaude(prompt: string, maxTokens = 250): Promise<string | null> {
   const ANTHROPIC = getSetting("anthropic");
   if (!ANTHROPIC) return null;
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: { "x-api-key": ANTHROPIC, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-    body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL ?? "claude-haiku-5-5", max_tokens: 250, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model: process.env.ANTHROPIC_MODEL ?? "claude-haiku-5-5", max_tokens: maxTokens, messages: [{ role: "user", content: prompt }] }),
   });
   if (!r.ok) throw new Error(`Anthropic ${r.status}: ${(await r.text()).slice(0, 200)}`);
   const d: any = await r.json();

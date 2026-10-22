@@ -1,0 +1,18 @@
+<section class="view">
+  <div class="row"><h1>Overview</h1><button class="ghost" id="refresh">↻ Refresh</button></div>
+  <div id="body"></div>
+
+  <template id="t-overview">
+    <div>
+      <div class="statgrid" data-slot="stats"></div>
+      <div class="cols">
+        <div class="panel"><h3>Sign-ins, last 14 days</h3><slot name="logins"></slot></div>
+        <div class="panel"><h3>Spotify calls per hour (24h)</h3><slot name="calls"></slot></div>
+      </div>
+      <div class="cols">
+        <div class="panel"><h3>Feature usage, 7 days</h3><slot name="features"></slot></div>
+        <div class="panel"><h3>Recent errors</h3><slot name="errors"></slot></div>
+      </div>
+    </div>
+  </template>
+</section>

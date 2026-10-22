@@ -5,79 +5,71 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#0e0f13">
   <title>Resonance</title>
-  <link rel="manifest" href="manifest.webmanifest">
-  <link rel="icon" href="icon.svg">
-  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="icon" href="/icon.svg">
+  <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <header>
     <div class="brand">resonance</div>
     <nav id="tabs" hidden>
-      <button data-tab="feed" class="active">Feed</button>
-      <button data-tab="stats">Stats</button>
-      <button data-tab="discover">Discover</button>
-      <button data-tab="blend">Blend</button>
+      <a href="/feed">Feed</a>
+      <a href="/stats">Stats</a>
+      <a href="/discover">Discover</a>
+      <a href="/concerts" id="tab-concerts" hidden>Concerts</a>
+      <a href="/blend">Blend</a>
       <span id="ind"></span>
     </nav>
-    <div id="account" hidden></div>
+    <div id="account" hidden>
+      <img id="me-img" alt="" hidden><span id="me-name"></span>
+      <button id="logout">sign out</button><button id="delete-me">delete my data</button>
+    </div>
   </header>
 
   <main>
     <div id="banner" class="banner" hidden></div>
-
-    <section id="connect" hidden>
-      <h1>Your music, understood.</h1>
-      <p class="sub">Connect Spotify to get listening stats, fresh recommendations, and a feed tuned to your taste.</p>
-      <p id="setup" class="sub" style="margin:0 auto" hidden>This site isn't set up yet. The admin needs to add a Spotify Client ID first. <a href="/admin">Admin sign-in →</a></p>
-      <p id="reporting" class="sub" style="font-size:13px;margin:0 auto 14px" hidden>Heads up: this copy shares your Spotify name and ID, when you were last here and how many plays it has tracked with the site admin. Never your tokens or listening history.</p>
-      <a id="spotify-btn" class="btn" href="/auth/spotify/login" hidden>Connect Spotify</a>
-      <p class="sub" style="font-size:13px;margin:18px auto 0"><a href="/admin">admin</a></p>
-    </section>
-
-    <section id="view-feed" class="view" hidden>
-      <div class="row"><h1>Your feed</h1><button class="ghost" id="notify" hidden>🔔 Release alerts</button><button class="ghost" data-refresh="feed">↻ Refresh</button></div>
-      <div id="feed" class="feed"></div>
-    </section>
-
-    <section id="view-stats" class="view" hidden>
-      <div class="row">
-        <h1>Your stats</h1>
-        <div id="range" class="seg">
-          <button data-range="short">4 weeks</button>
-          <button data-range="medium" class="active">6 months</button>
-          <button data-range="long">All time</button>
-        </div>
-        <button class="ghost" id="share">⤓ Share card</button>
-      </div>
-      <div id="stats"></div>
-    </section>
-
-    <section id="view-discover" class="view" hidden>
-      <div class="row">
-        <h1>Discover</h1>
-        <div id="mode" class="seg">
-          <button data-mode="similar" class="active">Similar</button>
-          <button data-mode="now">Right now</button>
-          <button data-mode="adventurous">Adventurous</button>
-          <button data-mode="deepcuts">Deep cuts</button>
-        </div>
-        <button class="ghost" data-refresh="discover">↻ Shuffle</button>
-        <button class="ghost" id="save-pl">＋ Save as playlist</button>
-      </div>
-      <div id="recs" class="grid"></div>
-    </section>
-
-    <section id="view-blend" class="view" hidden>
-      <div class="row"><h1>Blend</h1></div>
-      <p class="sub" style="margin-top:0">Compare taste with a friend. Swap codes (they run their own copy of this app), paste theirs, and see how compatible you are.</p>
-      <div class="cols">
-        <div class="panel"><h3>Your taste code</h3><textarea id="mycode" readonly rows="4" placeholder="Loading…"></textarea><button class="ghost" id="copycode">Copy</button></div>
-        <div class="panel"><h3>Friend's code</h3><textarea id="theircode" rows="4" placeholder="Paste a friend's code here"></textarea><button class="btn" id="compare">Compare</button></div>
-      </div>
-      <div id="blend-result"></div>
-    </section>
+    <!-- the current page from app/pages/ goes here -->
+    <div id="page"></div>
   </main>
 
-  <script type="module" src="app.js"></script>
+  <div id="pl-modal" class="modal" hidden>
+    <div class="panel">
+      <div class="row"><h3 style="margin:0;margin-right:auto">Add to playlist</h3><button class="ghost" id="pl-close">✕</button></div>
+      <div id="pl-list"></div>
+    </div>
+  </div>
+
+  <!-- templates used by more than one page -->
+  <template id="t-actions">
+    <div class="actions">
+      <button class="play" data-slot="preview">▶ Preview</button>
+      <button class="play add-btn" data-slot="add">＋ Playlist</button>
+      <a class="open" data-slot="open" target="_blank" rel="noopener">Open ↗</a>
+      <button class="vote" data-vote="1" data-slot="up" title="More like this">👍</button>
+      <button class="vote" data-vote="-1" data-slot="down" title="Less like this">👎</button>
+      <button class="play why-btn" data-slot="why">Why?</button>
+    </div>
+  </template>
+
+  <template id="t-tile">
+    <div class="tile"><slot name="cover"></slot><div class="title" data-slot="title"></div><div class="by" data-slot="by"></div><div class="why" data-slot="why"></div><slot name="actions"></slot></div>
+  </template>
+
+  <template id="t-event">
+    <div class="item event">
+      <div class="meta"><div class="why">Live · <slot name="artist"></slot></div><div class="title" data-slot="name"></div><div class="by" data-slot="where"></div></div>
+      <div class="actions"><a class="open" data-slot="tickets" target="_blank" rel="noopener">Tickets ↗</a></div>
+    </div>
+  </template>
+
+  <template id="t-pl">
+    <button class="pl"><slot name="cover"></slot><span><slot name="name"></slot><br><small style="color:var(--muted)"><slot name="tracks"></slot> tracks</small></span></button>
+  </template>
+
+  <template id="t-bar">
+    <div class="bar" data-slot="bar"><div class="name" data-slot="name"></div><div class="track"><div class="fill" data-slot="fill"></div></div><div class="v" data-slot="v"></div></div>
+  </template>
+
+  <script type="module" src="/app/main.js"></script>
 </body>
 </html>

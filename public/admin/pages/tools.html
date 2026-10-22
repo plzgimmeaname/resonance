@@ -1,0 +1,16 @@
+<section class="view">
+  <div class="row"><h1>Tools</h1></div>
+  <h3 class="sect">Maintenance</h3>
+  <div class="tools" id="maintenance">
+    <div class="tool"><b>Clear caches</b><span>Forget cached taste profiles, feeds and recommendations so they rebuild fresh.</span><button class="ghost" data-action="clear_cache">Clear caches</button></div>
+    <div class="tool"><b>Sync history now</b><span>Pull the latest plays for every connected user instead of waiting for the 15 minute timer.</span><button class="ghost" data-action="sync_history">Sync everyone</button></div>
+    <div class="tool"><b>Reset all votes</b><span>Delete every 👍/👎 for all users. Recommendations go back to the plain taste profile.</span><button class="ghost" data-action="reset_feedback" data-confirm="Delete all votes for all users?">Reset votes</button></div>
+    <div class="tool"><b>Prune old logs</b><span>Delete usage and API logs older than 30 days and shrink the database.</span><button class="ghost" data-action="prune_logs">Prune</button></div>
+  </div>
+  <h3 class="sect">Export and backup</h3>
+  <div class="tools">
+    <div class="tool"><b>Plays (CSV)</b><span>Every tracked play for all users.</span><a class="ghost" href="/admin/api/export/plays.csv">Download</a></div>
+    <div class="tool"><b>Usage log (CSV)</b><span>Sign-ins, feature use and errors.</span><a class="ghost" href="/admin/api/export/usage.csv">Download</a></div>
+    <div class="tool"><b>Database backup</b><span>A copy of the whole database. Spotify tokens, API keys and the admin password are removed from the copy.</span><a class="ghost" href="/admin/api/export/backup.db">Download</a></div>
+  </div>
+</section>

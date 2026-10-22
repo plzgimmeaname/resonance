@@ -6,8 +6,8 @@ import { captureLogs, printSetupCode, registerAdmin } from "./admin.js";
 import { endUserSession, startUserSession, userSession } from "./auth.js";
 import { runAs, uid } from "./context.js";
 import { addFeedback, db, deleteUserData, logEvent } from "./db.js";
-import { blendTracks, buildFeed, buildTaste, compare, computeStats, explain, exportTaste, recommend, summarize, type RecMode, type Taste, type TasteCode } from "./engine.js";
-import { features, findPreview } from "./extras.js";
+import { blendTracks, buildConcerts, buildFeed, buildTaste, compare, computeStats, explain, exportTaste, recommend, summarize, vibePlaylist, type RecMode, type Taste, type TasteCode } from "./engine.js";
+import { artistInfo, features, findPreview } from "./extras.js";
 import { startPoller, syncHistory } from "./history.js";
 import { isReporting, registerCollector, sendReport } from "./remote.js";
 import { getSetting } from "./settings.js";
@@ -54,6 +54,8 @@ const taste = () => cached<Taste>("taste", 5 * 60_000, buildTaste);
 registerCollector(app);
 registerAdmin(app, { clearCache, cacheSize: () => cache.size, redirectUri: REDIRECT, publicDir });
 app.use(express.static(publicDir));
+// app pages are routed in the browser (public/app/main.js), they all get the same shell
+app.get(["/connect", "/feed", "/stats", "/discover", "/concerts", "/blend"], (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
 
 // spotify login: send them to spotify, then handle the callback
 app.get("/auth/spotify/login", (_req, res) => {
@@ -140,6 +142,22 @@ app.get("/api/feed", wrap("view_feed", async (req) => {
   return cached("feed", 10 * 60_000, async () => buildFeed(await taste()));
 }));
 
+app.get("/api/concerts", wrap("view_concerts", async (req) => {
+  if (req.query.refresh === "1") invalidate("concerts");
+  return cached("concerts", 60 * 60_000, async () => buildConcerts(await taste()));
+}));
+
+app.get("/api/artist", wrap("artist_info", async (req) => {
+  const name = String(req.query.name ?? "").slice(0, 100);
+  return (await cached(`artist:${name.toLowerCase()}`, 24 * 3600_000, () => artistInfo(name))) ?? {};
+}));
+
+app.post("/api/vibe", wrap("vibe", async (req) => {
+  const vibe = String(req.body?.vibe ?? "").trim();
+  if (!vibe) throw new Error("Describe a vibe first.");
+  return vibePlaylist(await taste(), vibe);
+}));
+
 app.get("/api/summary", wrap(null, async () => ({ text: await cached("summary", 60 * 60_000, async () => summarize(await taste())) })));
 
 app.post("/api/explain", wrap("explain", async (req) => {
@@ -170,6 +188,23 @@ app.post("/api/playlist", wrap("playlist", async (req) => {
   const { name, uris } = req.body as { name: string; uris: string[] };
   if (!uris?.length) throw new Error("no tracks");
   return spotify.createPlaylist(name || "Resonance picks", "Created by Resonance", uris);
+}));
+
+const needPlaylistScope = () => {
+  if (!hasPlaylistScope()) throw new Error("Sign out and connect again to grant playlist permission.");
+};
+
+app.get("/api/playlists", wrap(null, async () => {
+  needPlaylistScope();
+  return spotify.myPlaylists();
+}));
+
+app.post("/api/playlist/add", wrap("playlist_add", async (req) => {
+  needPlaylistScope();
+  const { playlistId, uri } = req.body as { playlistId?: string; uri?: string };
+  if (!playlistId || !uri?.startsWith("spotify:track:")) throw new Error("bad request");
+  await spotify.addToPlaylist(playlistId, uri);
+  return { ok: true };
 }));
 
 app.get("/api/blend/export", wrap("view_blend", async () => {

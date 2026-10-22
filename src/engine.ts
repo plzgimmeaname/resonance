@@ -1,6 +1,6 @@
 import { uid } from "./context.js";
 import { artistGenres, db, feedback, upsertArtist } from "./db.js";
-import { askClaude, similarArtists, upcomingEvents, type ConcertEvent } from "./extras.js";
+import { askClaude, concertsFor, similarArtists, upcomingEvents, type ConcertEvent } from "./extras.js";
 import { spotify } from "./spotify.js";
 import type { Artist, Range, Release, Track } from "./types.js";
 
@@ -291,12 +291,41 @@ export async function recommend(t: Taste, mode: RecMode = "similar"): Promise<Re
 
 export type FeedItem =
   | { type: "release"; release: Release; reason: string }
-  | { type: "track"; track: Track; reason: string; genre?: string; artist?: string }
+  // src says where a song came from, the feed filters use it
+  | { type: "track"; track: Track; reason: string; genre?: string; artist?: string; src?: "similar" | "adventurous" | "deepcuts" | "throwback" | "simartist" }
   | { type: "event"; event: ConcertEvent }
   | { type: "insight"; title: string; body: string };
 
 const RECENT_DAYS = 45;
 const parseDate = (d: string) => Date.parse(d.length === 4 ? `${d}-01-01` : d.length === 7 ? `${d}-01` : d);
+
+// tracks from unheard artists that last.fm lists as similar to your top artists
+async function similarArtistItems(t: Taste): Promise<FeedItem[]> {
+  const favs = [...t.artists.short.slice(0, 6), ...t.artists.long.slice(0, 6)].filter((a, i, l) => l.findIndex((x) => x.id === a.id) === i);
+  const claimed = new Set<string>();
+  const perFav = await Promise.all(
+    favs.map(async (a) => ({ a, names: await settle(similarArtists(a.name, 10), []) })),
+  );
+  const picks: { from: string; name: string }[] = [];
+  for (const { a, names } of perFav) {
+    let n = 0;
+    for (const name of names) {
+      const k = norm(name);
+      if (n >= 3 || t.knownArtists.has(k) || t.dislikedArtists.has(k) || claimed.has(k)) continue;
+      claimed.add(k);
+      picks.push({ from: a.name, name });
+      n++;
+    }
+  }
+  const found = await Promise.all(picks.map((p) => settle(spotify.searchTracks({ artist: p.name }, 5), [])));
+  const seen = new Set<string>();
+  return found.flatMap((ts, i) =>
+    ts
+      .filter((x) => norm(x.artists[0]) === norm(picks[i].name) && !t.knownTracks.has(trackKey(x)) && !seen.has(trackKey(x)) && seen.add(trackKey(x)))
+      .slice(0, 2)
+      .map((track): FeedItem => ({ type: "track", track, reason: `Similar to ${picks[i].from}: ${picks[i].name}`, artist: picks[i].name, src: "simartist" })),
+  );
+}
 
 export async function buildFeed(t: Taste): Promise<FeedItem[]> {
   const favs = new Map<string, Artist>();
@@ -320,7 +349,14 @@ export async function buildFeed(t: Taste): Promise<FeedItem[]> {
 
   const eventJobs = [...favs.values()].slice(0, 12).map((a) => settle(upcomingEvents(a.name), []));
 
-  const [relAll, recs, events] = await Promise.all([Promise.all(relJobs), recommend(t, "similar"), Promise.all(eventJobs)]);
+  const [relAll, recs, adv, deep, events, simArtists] = await Promise.all([
+    Promise.all(relJobs),
+    recommend(t, "similar"),
+    settle(recommend(t, "adventurous"), []),
+    settle(recommend(t, "deepcuts"), []),
+    Promise.all(eventJobs),
+    settle(similarArtistItems(t), []),
+  ]);
   const seenRel = new Set<string>();
   const releases = relAll
     .flat()
@@ -332,7 +368,7 @@ export async function buildFeed(t: Taste): Promise<FeedItem[]> {
   const throwbacks: FeedItem[] = t.tracks.long
     .filter((x) => !recentKeys.has(trackKey(x)))
     .slice(0, 6)
-    .map((track) => ({ type: "track", track, reason: "Throwback: you used to play this a lot" }));
+    .map((track) => ({ type: "track", track, reason: "Throwback: you used to play this a lot", src: "throwback" }));
 
   const s = computeStats(t, "medium");
   const insights: FeedItem[] = [];
@@ -341,11 +377,14 @@ export async function buildFeed(t: Taste): Promise<FeedItem[]> {
   if (s.fading[0]) insights.push({ type: "insight", title: `Drifting from ${s.fading[0].name}`, body: `You've been playing less of it lately.` });
   if (s.topRecentArtist && s.loyalty >= 15) insights.push({ type: "insight", title: `${s.topRecentArtist} on repeat`, body: `${s.loyalty}% of your recent plays are this one artist.` });
 
-  const recItems: FeedItem[] = recs.map((r) => ({ type: "track", track: r.track, reason: r.reason, genre: r.genre, artist: r.artist }));
+  const asItems = (list: Rec[], src: "similar" | "adventurous" | "deepcuts"): FeedItem[] => list.map((r) => ({ type: "track", track: r.track, reason: r.reason, genre: r.genre, artist: r.artist, src }));
+  const recItems = asItems(recs, "similar");
+  const advItems = asItems(adv, "adventurous").slice(0, 10);
+  const deepItems = asItems(deep, "deepcuts").slice(0, 10);
   const eventItems: FeedItem[] = events.flat().slice(0, 6).map((event) => ({ type: "event", event }));
 
-  const queues = [releases, recItems.slice(0, 14), recItems.slice(14), throwbacks, insights, eventItems].map((q) => [...q]);
-  const pattern = [0, 1, 2, 3, 5, 1, 4, 0, 2];
+  const queues = [releases, recItems.slice(0, 14), recItems.slice(14), throwbacks, insights, eventItems, advItems, deepItems, simArtists.sort(() => Math.random() - 0.5).slice(0, 24)].map((q) => [...q]);
+  const pattern = [0, 1, 8, 6, 2, 3, 8, 5, 7, 1, 4, 8, 0, 6, 2, 7];
   const feed: FeedItem[] = [];
   while (queues.some((q) => q.length) && feed.length < 90) {
     for (const i of pattern) {
@@ -395,6 +434,32 @@ export async function blendTracks(t: Taste, genres: string[]): Promise<Rec[]> {
   const results = await Promise.all(genres.slice(0, 4).map((genre) => settle(spotify.searchTracks({ genre }, 10), []).then((ts) => ts.map((track) => ({ track, genre, reason: `Shared taste: ${genre}`, score: Math.random() })))));
   const seen = new Set<string>();
   return results.flat().filter((r) => !t.knownTracks.has(trackKey(r.track)) && !seen.has(r.track.id) && seen.add(r.track.id)).slice(0, 25);
+}
+
+// concerts tab: shows for your top artists
+export async function buildConcerts(t: Taste): Promise<ConcertEvent[]> {
+  const names = [...new Set([...t.artists.short.slice(0, 15), ...t.artists.medium.slice(0, 15), ...t.artists.long.slice(0, 10)].map((a) => a.name))];
+  return concertsFor(names.slice(0, 30));
+}
+
+// vibe playlist: claude suggests songs for a description, spotify finds them
+export async function vibePlaylist(t: Taste, vibe: string): Promise<Rec[]> {
+  const genres = topGenres(t, 5).map(([g]) => g).join(", ");
+  const artists = t.artists.medium.slice(0, 8).map((a) => a.name).join(", ");
+  const text = await askClaude(
+    `Suggest 12 real songs for this request: "${vibe.slice(0, 200)}". The listener's top genres: ${genres}. Top artists: ${artists}. ` +
+      `Mix familiar territory with a few new finds. Reply with only a JSON array of {"title": string, "artist": string}. Only songs you are sure exist.`,
+    900,
+  );
+  let picks: { title: string; artist: string }[] = [];
+  try {
+    picks = JSON.parse(text?.match(/\[[\s\S]*\]/)?.[0] ?? "[]");
+  } catch {}
+  const found = await Promise.all(picks.slice(0, 12).map((p) => settle(spotify.findTrack(String(p.title), String(p.artist)), null)));
+  const seen = new Set<string>();
+  return found
+    .filter((track): track is Track => track !== null && !seen.has(track.id) && (seen.add(track.id), true))
+    .map((track) => ({ track, reason: `Matches "${vibe.slice(0, 40)}"`, score: 1 }));
 }
 
 export async function explain(t: Taste, track: Track, reason: string) {

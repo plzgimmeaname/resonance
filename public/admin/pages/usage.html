@@ -1,0 +1,32 @@
+<section class="view">
+  <div class="row"><h1>Usage</h1><button class="ghost" id="refresh">↻ Refresh</button></div>
+  <div id="body"></div>
+
+  <template id="t-usage">
+    <div>
+      <h3 class="sect">Spotify API health, last 24 hours</h3>
+      <div class="statgrid" data-slot="health"></div>
+      <div class="cols">
+        <div class="panel"><h3>Calls per hour</h3><slot name="calls"></slot><div class="histlabels"><span>24h ago</span><span>now</span></div></div>
+        <div class="panel"><h3>Failures per hour</h3><slot name="failures"></slot><div class="histlabels"><span>24h ago</span><span>now</span></div></div>
+      </div>
+      <div class="panel" style="margin-bottom:40px"><h3>Busiest endpoints</h3><div class="scroll"><table class="tbl">
+        <thead><tr><th>Endpoint</th><th>Calls</th><th>Failed</th><th>Avg ms</th></tr></thead>
+        <tbody data-slot="endpoints"></tbody>
+      </table></div></div>
+      <h3 class="sect">Feature usage, last 7 days</h3>
+      <div class="panel" style="margin-bottom:40px" data-slot="features"></div>
+      <h3 class="sect">System</h3>
+      <div class="statgrid" style="margin-bottom:24px" data-slot="system"></div>
+      <p class="sub" style="font-size:13px;margin:0 0 24px" data-slot="host"></p>
+      <h3 class="sect">Recent errors</h3>
+      <div class="panel" style="margin-bottom:40px" data-slot="errors"></div>
+      <h3 class="sect">Server log</h3>
+      <pre class="log" data-slot="log"></pre>
+    </div>
+  </template>
+
+  <template id="t-endpoint">
+    <tr><td><code data-slot="path"></code></td><td data-slot="n"></td><td data-slot="errors"></td><td data-slot="avg"></td></tr>
+  </template>
+</section>

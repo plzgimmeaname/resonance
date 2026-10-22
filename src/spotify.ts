@@ -7,7 +7,7 @@ import type { Artist, Range, Release, Track } from "./types.js";
 const API = process.env.SPOTIFY_API_URL ?? "https://api.spotify.com/v1";
 const ACCOUNTS = process.env.SPOTIFY_ACCOUNTS_URL ?? "https://accounts.spotify.com";
 export const clientId = () => getSetting("clientId");
-export const SCOPES = "user-top-read user-read-recently-played playlist-modify-private";
+export const SCOPES = "user-top-read user-read-recently-played playlist-modify-private playlist-read-private playlist-read-collaborative";
 const RANGE: Record<Range, string> = { short: "short_term", medium: "medium_term", long: "long_term" };
 
 export class NotConnected extends Error {
@@ -87,7 +87,7 @@ export const isConnected = () => Boolean(loadTok(uid()));
 export const disconnect = (userId = uid()) => {
   db.prepare("update users set access = null, refresh = null, connected = 0 where id = ?").run(userId);
 };
-export const hasPlaylistScope = () => (loadTok(uid())?.scope ?? "").includes("playlist-modify-private");
+export const hasPlaylistScope = () => (loadTok(uid())?.scope ?? "").includes("playlist-read-private");
 
 async function accessToken(): Promise<string> {
   const id = uid();
@@ -185,6 +185,13 @@ export const spotify = {
     const d = await call("GET", "/search", { q: query, type: "track", limit: Math.min(limit, 10), offset });
     return d.tracks.items.filter(Boolean).map((t: any) => mapTrack(t));
   },
+  // best match for one specific song, null if spotify has nothing
+  async findTrack(name: string, artist: string): Promise<Track | null> {
+    const clean = (s: string) => s.replace(/["]/g, "");
+    const d = await call("GET", "/search", { q: `track:"${clean(name)}" artist:"${clean(artist)}"`, type: "track", limit: 1 });
+    const t = d.tracks.items.filter(Boolean)[0];
+    return t ? mapTrack(t) : null;
+  },
   async searchNewAlbums(genre: string): Promise<Release[]> {
     const d = await call("GET", "/search", { q: `genre:"${genre}" tag:new`, type: "album", limit: 10 });
     return d.albums.items.filter(Boolean).map(mapAlbum);
@@ -192,6 +199,16 @@ export const spotify = {
   async artistReleases(id: string): Promise<Release[]> {
     const d = await call("GET", `/artists/${id}/albums`, { include_groups: "album,single", limit: 10 });
     return d.items.map(mapAlbum);
+  },
+  // playlists the user can add to: their own or collaborative ones
+  async myPlaylists(): Promise<{ id: string; name: string; image?: string; tracks: number }[]> {
+    const d = await call("GET", "/me/playlists", { limit: 50 });
+    return d.items
+      .filter((p: any) => p && (p.owner?.id === uid() || p.collaborative))
+      .map((p: any) => ({ id: p.id, name: p.name, image: img(p.images), tracks: p.tracks?.total ?? p.items?.total ?? 0 }));
+  },
+  async addToPlaylist(playlistId: string, uri: string) {
+    await call("POST", `/playlists/${encodeURIComponent(playlistId)}/items`, {}, { uris: [uri] });
   },
   async createPlaylist(name: string, description: string, uris: string[]) {
     const pl = await call("POST", "/me/playlists", {}, { name, description, public: false });

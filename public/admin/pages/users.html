@@ -1,0 +1,40 @@
+<section class="view">
+  <div class="row"><h1>Users</h1><button class="ghost" id="refresh">↻ Refresh</button></div>
+  <p class="sub" style="margin-top:0">Spotify development mode allows 5 users per app. Add each person's email under User Management in the Spotify dashboard.</p>
+  <div class="scroll"><table class="tbl">
+    <thead><tr><th>User</th><th>Status</th><th>Plays</th><th>Activity 7d</th><th>Last seen</th><th>Joined</th><th></th></tr></thead>
+    <tbody id="users"></tbody>
+  </table></div>
+
+  <div id="remote" hidden>
+    <h3 style="margin:36px 0 6px">Other copies (same Client ID)</h3>
+    <p class="sub" style="margin-top:0">Accounts reported by copies of the app running elsewhere. Unverified and read-only; they refresh every 15 minutes.</p>
+    <div class="scroll"><table class="tbl">
+      <thead><tr><th>User</th><th>Copy</th><th>Status</th><th>Plays</th><th>Last seen</th><th>Joined</th><th>Reported</th></tr></thead>
+      <tbody id="remote-rows"></tbody>
+    </table></div>
+  </div>
+
+  <template id="t-user">
+    <tr>
+      <td><div class="who"><slot name="avatar"></slot><div><slot name="name"></slot><div style="color:var(--muted);font-size:12px" data-slot="id"></div></div></div></td>
+      <td><slot name="status"></slot> <span class="pill" data-slot="sessions"></span></td>
+      <td data-slot="plays"></td><td data-slot="events"></td><td data-slot="seen"></td><td data-slot="joined"></td>
+      <td><div class="acts" data-slot="acts">
+        <button class="ghost mini" data-act="sync">Sync</button>
+        <button class="ghost mini" data-act="reset">Reset votes</button>
+        <button class="ghost mini" data-act="disconnect">Disconnect</button>
+        <button class="ghost mini" data-slot="block"></button>
+        <button class="ghost mini danger" data-act="delete">Delete</button>
+      </div></td>
+    </tr>
+  </template>
+
+  <template id="t-remote-user">
+    <tr>
+      <td><slot name="name"></slot><div style="color:var(--muted);font-size:12px" data-slot="id"></div></td>
+      <td data-slot="instance"></td><td><slot name="status"></slot></td>
+      <td data-slot="plays"></td><td data-slot="seen"></td><td data-slot="joined"></td><td data-slot="reported"></td>
+    </tr>
+  </template>
+</section>

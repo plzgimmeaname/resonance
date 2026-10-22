@@ -1,0 +1,72 @@
+<section class="view">
+  <div class="row">
+    <h1>Your stats</h1>
+    <div id="range" class="seg">
+      <button data-range="short">4 weeks</button>
+      <button data-range="medium">6 months</button>
+      <button data-range="long">All time</button>
+    </div>
+    <button class="ghost" id="share">⤓ Share card</button>
+  </div>
+  <div id="stats"></div>
+
+  <!-- the whole stats body, its children go straight into #stats -->
+  <template id="t-stats">
+    <div>
+      <div class="ai-sum" hidden></div>
+      <div class="persona"><div>Your listening personality</div><h2 data-slot="persona"></h2><div data-slot="blurb"></div></div>
+      <div class="statgrid">
+        <div class="stat"><div class="n" data-slot="diversity">0</div><div class="l">Genre diversity /100</div></div>
+        <div class="stat"><div class="n" data-slot="fresh" data-suffix="%">0</div><div class="l">Recent plays outside your usual artists</div></div>
+        <div class="stat"><div class="n" data-slot="loyalty" data-suffix="%">0</div><div class="l">Recent plays by your top artist</div></div>
+        <div class="stat" data-slot="streak-box"><div class="n" data-slot="streak" data-suffix="d">0</div><div class="l">Day streak</div></div>
+      </div>
+      <div class="panel" style="margin-bottom:24px" data-slot="shift">
+        <h3>Your taste is shifting</h3>
+        <div class="chips" data-slot="shift-chips"></div>
+        <div style="color:var(--muted);font-size:13px">Recent listening vs. your all-time profile (percentage points).</div>
+      </div>
+      <div class="cols">
+        <div class="panel"><h3>Top artists</h3><slot name="artists"></slot></div>
+        <div class="panel"><h3>Top tracks</h3><slot name="tracks"></slot></div>
+      </div>
+      <div class="cols">
+        <div class="panel"><h3>Top genres</h3><slot name="genres"></slot></div>
+        <div class="panel"><h3>Taste over time</h3><slot name="drift"></slot></div>
+      </div>
+      <div class="panel" style="margin-bottom:24px">
+        <h3>Your lifetime history <span style="color:var(--muted);font-weight:400;font-size:13px" data-slot="since"></span></h3>
+        <div data-slot="lifetime">
+          <div class="statgrid">
+            <div class="stat"><div class="n" data-slot="plays">0</div><div class="l">Plays tracked</div></div>
+            <div class="stat"><div class="n" data-slot="hours-total" data-suffix="h">0</div><div class="l">Hours listened</div></div>
+            <div class="stat"><div class="n" data-slot="days-active">0</div><div class="l">Active days</div></div>
+          </div>
+          <div class="cols">
+            <div>
+              <div style="color:var(--muted);font-size:13px;margin-bottom:6px">Hour of day</div><slot name="hours"></slot>
+              <div style="color:var(--muted);font-size:13px;margin:16px 0 6px">Day of week</div><slot name="days"></slot>
+            </div>
+            <div><div style="color:var(--muted);font-size:13px;margin-bottom:6px">Most played (tracked)</div><slot name="played"></slot></div>
+          </div>
+        </div>
+        <div class="empty" style="padding:20px 0" data-slot="no-lifetime">Spotify only reports your last 50 plays, so Resonance records them in the background while it's running. Keep it open (or run it now and then) and your lifetime stats build up here.</div>
+      </div>
+    </div>
+  </template>
+
+  <template id="t-rank">
+    <div class="rank" data-slot="rank"><div class="i" data-slot="i"></div><img data-slot="img" alt="" loading="lazy"><div class="t"><div data-slot="title"></div><div data-slot="sub"></div></div></div>
+  </template>
+
+  <!-- last.fm deep dive, opens under an artist row -->
+  <template id="t-dive">
+    <div class="dive" style="padding:8px 0 14px 34px;color:var(--muted);font-size:13px">
+      <slot name="tags"></slot>
+      <div style="margin:6px 0" data-slot="listeners"></div>
+      <div style="margin-bottom:6px" data-slot="bio"></div>
+      <div data-slot="similar"></div>
+      <a class="open" data-slot="link" target="_blank" rel="noopener">Last.fm ↗</a>
+    </div>
+  </template>
+</section>

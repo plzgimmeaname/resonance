@@ -1,0 +1,22 @@
+<section class="view">
+  <div class="row"><h1>Blend</h1></div>
+  <p class="sub" style="margin-top:0">Compare taste with a friend. Swap codes (they run their own copy of this app), paste theirs, and see how compatible you are.</p>
+  <div class="cols">
+    <div class="panel"><h3>Your taste code</h3><textarea id="mycode" readonly rows="4" placeholder="Loading…"></textarea><button class="ghost" id="copycode">Copy</button></div>
+    <div class="panel"><h3>Friend's code</h3><textarea id="theircode" rows="4" placeholder="Paste a friend's code here"></textarea><button class="btn" id="compare">Compare</button></div>
+  </div>
+  <div id="blend-result"></div>
+
+  <template id="t-blend">
+    <div>
+      <div class="panel" style="margin-bottom:32px;text-align:center">
+        <div class="l" style="color:var(--muted)">You + <slot name="name"></slot></div>
+        <div class="big" data-slot="score" data-suffix="%">0</div>
+        <div class="chips" style="justify-content:center" data-slot="genres"></div>
+        <div style="color:var(--muted)" data-slot="artists"></div>
+      </div>
+      <div class="row"><h3 style="margin:0;margin-right:auto">Songs you might both like</h3><button class="ghost" id="blend-save">＋ Save as playlist</button></div>
+      <div class="grid" data-slot="tracks"></div>
+    </div>
+  </template>
+</section>

@@ -1,0 +1,25 @@
+<section class="view">
+  <div class="row"><h1>Settings</h1></div>
+  <form id="sf" class="form-grid">
+    <label>Spotify Client ID<input name="clientId" autocomplete="off" spellcheck="false"></label>
+    <p class="hint" style="margin:-6px 0 0">Add this redirect URI in your Spotify app: <code id="uri"></code> <button type="button" class="ghost mini" id="copy">Copy</button></p>
+    <h3 style="margin:14px 0 0">Optional integrations</h3>
+    <label>Last.fm API key<span class="is-set" data-key="lastfm" hidden> ✓ set</span><input name="lastfm" type="password" autocomplete="off" placeholder="similar-artist recommendations"></label>
+    <label>Ticketmaster API key<span class="is-set" data-key="ticketmaster" hidden> ✓ set</span><input name="ticketmaster" type="password" autocomplete="off" placeholder="concerts in the feed"></label>
+    <div class="two"><label>City<input name="city" placeholder="optional"></label><label>Country<input name="country" placeholder="US"></label></div>
+    <label>Anthropic API key<span class="is-set" data-key="anthropic" hidden> ✓ set</span><input name="anthropic" type="password" autocomplete="off" placeholder="“why?” explanations and taste summaries"></label>
+    <h3 style="margin:14px 0 0">Track other copies</h3>
+    <label>Collector URL<input name="reportUrl" placeholder="https://your-admin-copy.example.com" autocomplete="off" spellcheck="false"></label>
+    <label>Shared key<span class="is-set" data-key="reportKey" hidden> ✓ set</span><input name="reportKey" type="password" autocomplete="off" placeholder="optional, must match the collector"></label>
+    <p class="hint">On the copy that should see everyone (it must be reachable over https), leave the URL empty and set a key. On every other copy, enter that copy's URL and the same key; they share basic account info with it. All copies must use the same Client ID.</p>
+    <p class="hint">Saved on the server only and never shown again. Leave a key blank to keep it; type <code>-</code> to remove it. Changing the Client ID signs everyone out.</p>
+    <div><button class="btn" type="submit">Save settings</button></div>
+  </form>
+
+  <h3 style="margin:48px 0 14px">Admin password</h3>
+  <form id="pf" class="form-grid">
+    <label>Current password<input name="current" type="password" autocomplete="current-password"></label>
+    <label>New password (8+ characters)<input name="next" type="password" autocomplete="new-password"></label>
+    <div><button class="ghost" type="submit">Change password</button></div>
+  </form>
+</section>

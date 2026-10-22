@@ -3,6 +3,20 @@
   --text: #f4f4f5; --muted: #8a8a93; --accent: #a78bfa; --accent2: #f0abfc; --ok: #6ee7b7; --bad: #fda4af;
   --r: 18px; --ease: cubic-bezier(.22,1,.36,1);
 }
+/* feed as a snap-scrolling reel, one card per screen */
+.feed.reels { height: calc(100dvh - 190px); min-height: 420px; overflow-y: auto; scroll-snap-type: y mandatory; scrollbar-width: none; }
+.reels .item, .reels .item.insight { display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 14px; min-height: 100%; margin: 0; border: 0; border-radius: 0; background: none; scroll-snap-align: start; scroll-snap-stop: always; transform: none; }
+.reels .item:hover { background: none; transform: none; }
+.reels .item img, .reels .item .ph { width: min(300px, 60vw); height: min(300px, 60vw); border-radius: 20px; }
+.reels .item .meta { flex: none; max-width: 100%; }
+.reels .item .title { font-size: 22px; white-space: normal; }
+.reels .item .actions { opacity: 1; transform: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); padding: 16px; }
+.modal[hidden] { display: none; }
+.modal .panel { width: min(420px, 100%); max-height: 70vh; overflow-y: auto; background: var(--surface); }
+.modal .pl { display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px; border: 0; border-radius: 12px; background: none; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.modal .pl:hover { background: var(--surface2); }
+.modal .pl img, .modal .pl .ph { width: 40px; height: 40px; border-radius: 8px; object-fit: cover; background: var(--surface2); }
 @media (prefers-color-scheme: light) {
   :root { --bg: #fafafa; --surface: #fff; --surface2: #f1f1f4; --line: rgba(0,0,0,.08); --text: #111114; --muted: #6f6f78; --accent: #7c5cf0; --accent2: #d946ef; --ok: #059669; --bad: #e11d48; }
 }
@@ -26,8 +40,8 @@ header { display: flex; align-items: center; gap: 28px; padding: 16px 32px; posi
 .brand::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent2)); box-shadow: 0 0 14px var(--accent); animation: pulse 3s ease-in-out infinite; }
 @keyframes pulse { 50% { transform: scale(1.5); opacity: .7; } }
 nav { display: flex; gap: 2px; flex: 1; position: relative; }
-nav button { position: relative; background: none; border: 0; color: var(--muted); padding: 8px 14px; cursor: pointer; font: inherit; font-size: 14px; transition: color .25s; }
-nav button:hover, nav button.active { color: var(--text); }
+nav a { position: relative; color: var(--muted); padding: 8px 14px; font-size: 14px; text-decoration: none; transition: color .25s; }
+nav a:hover, nav a.active { color: var(--text); }
 #ind { position: absolute; bottom: -17px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: left .45s var(--ease), width .45s var(--ease); }
 #account { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; }
 #account img { width: 26px; height: 26px; border-radius: 50%; }
@@ -126,6 +140,8 @@ h3 { margin: 0 0 14px; font-size: 13px; font-weight: 500; color: var(--muted); t
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 12px; }
 .chip { border: 1px solid var(--line); padding: 3px 12px; border-radius: 999px; font-size: 13px; }
 .chip.up { color: var(--ok); } .chip.down { color: var(--bad); }
+button.chip { background: none; color: var(--muted); font: inherit; font-size: 13px; }
+button.chip.up { color: var(--text); background: var(--surface2); border-color: var(--accent); }
 .big { font-size: 80px; font-weight: 600; letter-spacing: -.05em; line-height: 1; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; font-variant-numeric: tabular-nums; }
 .stack { display: flex; height: 14px; border-radius: 6px; overflow: hidden; background: var(--surface2); transform-origin: left; animation: grow-x 1s var(--ease) backwards; }
 .stack div { height: 100%; }
@@ -162,6 +178,7 @@ dialog label input { display: block; width: 100%; margin-top: 6px; color: var(--
 dialog .two { display: grid; grid-template-columns: 2fr 1fr; gap: 12px; }
 .hint { font-size: 12px; color: var(--muted); }
 .hint[data-for]:not(:empty) { color: var(--ok); }
+.is-set { color: var(--ok); }
 .dlg-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
 
 .play:disabled { opacity: .4; pointer-events: none; }

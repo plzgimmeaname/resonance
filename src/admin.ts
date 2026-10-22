@@ -255,7 +255,9 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
   });
 
   app.use("/admin/api", express.json(), api);
-  app.get("/admin", (_req, res) => res.sendFile(path.join(hooks.publicDir, "admin.html")));
+  // admin pages are routed in the browser (public/admin/main.js), they all get the same shell
+  const pages = ["login", "overview", "users", "usage", "settings", "tools"].map((p) => `/admin/${p}`);
+  app.get(["/admin", ...pages], (_req, res) => res.sendFile(path.join(hooks.publicDir, "admin.html")));
 }
 
 export function printSetupCode() {
