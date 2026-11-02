@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { Express } from "express";
 import { db, kvGet, kvSet } from "./db.js";
+import { limiter } from "./limit.js";
 import { getSetting } from "./settings.js";
 import { clientId } from "./spotify.js";
 
@@ -19,10 +20,27 @@ export function instanceId(): string {
 export const reportUrl = () => getSetting("reportUrl").replace(/\/+$/, "");
 export const isReporting = () => Boolean(reportUrl());
 
+// the shared key goes in every report, so only send it over https (plain http is fine on this computer)
+export function validReportUrl(url: string): boolean {
+  try {
+    const u = new URL(url);
+    return u.protocol === "https:" || (u.protocol === "http:" && ["127.0.0.1", "localhost", "[::1]"].includes(u.hostname));
+  } catch {
+    return false;
+  }
+}
+
+const sameKey = (a: string, b: string) => {
+  const x = crypto.createHash("sha256").update(a).digest();
+  const y = crypto.createHash("sha256").update(b).digest();
+  return crypto.timingSafeEqual(x, y);
+};
+
 // posts our users to the collector, fire and forget
 export async function sendReport() {
   const url = reportUrl();
   if (!url) return;
+  if (!validReportUrl(url)) return console.warn("[report] collector URL must start with https://");
   const users = db
     .prepare(
       `select u.id, u.name, u.created_at, u.last_seen, u.connected,
@@ -44,23 +62,22 @@ export async function sendReport() {
 }
 
 // per ip counter so nobody can spam the collector
-const hits = new Map<string, number[]>();
+const allow = limiter(3600_000, 60);
 const str = (v: unknown, max: number) => String(v ?? "").slice(0, max);
 const num = (v: unknown) => (Number.isFinite(Number(v)) ? Math.trunc(Number(v)) : 0);
 
 export function registerCollector(app: Express) {
   app.post("/report", (req, res) => {
-    const ip = req.socket.remoteAddress ?? "?";
-    const recent = (hits.get(ip) ?? []).filter((t) => Date.now() - t < 3600_000);
-    hits.set(ip, [...recent, Date.now()]);
-    if (recent.length >= 60) return res.status(429).json({ error: "slow down" });
+    if (!allow(req.socket.remoteAddress ?? "?")) return res.status(429).json({ error: "slow down" });
 
-    const b = req.body as { clientId?: string; key?: string; instance?: string; users?: Record<string, unknown>[] };
+    const b = (req.body ?? {}) as { clientId?: string; key?: string; instance?: string; users?: Record<string, unknown>[] };
+    // the client id is public (it's in every spotify login link), so a shared key is required too
+    const key = getSetting("reportKey");
+    if (!key) return res.status(403).json({ error: "collector not enabled" });
+    if (!sameKey(String(b.key ?? ""), key)) return res.status(403).json({ error: "bad key" });
     // only accept reports made with our own client id
     const cid = clientId();
     if (!cid || b.clientId !== cid) return res.status(403).json({ error: "client id mismatch" });
-    const key = getSetting("reportKey");
-    if (key && b.key !== key) return res.status(403).json({ error: "bad key" });
     if (!b.instance || !/^[0-9a-f]{12}$/.test(b.instance) || !Array.isArray(b.users) || b.users.length > 50) return res.status(400).json({ error: "bad report" });
 
     const now = Date.now();

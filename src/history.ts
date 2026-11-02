@@ -1,9 +1,9 @@
-import { sendReport } from "./remote.js";
-import { runAs } from "./context.js";
+import { runAs, uid } from "./context.js";
 import { artistGenres, db, pruneOld, upsertArtist } from "./db.js";
-import { buildTaste, snapshotGenres } from "./engine.js";
+import { buildTaste, snapshotDue, snapshotGenres } from "./engine.js";
+import { checkReleases, pruneNotifications, releasesDue } from "./notify.js";
+import { sendReport } from "./remote.js";
 import { isConnected, spotify } from "./spotify.js";
-import { uid } from "./context.js";
 
 // spotify only exposes the last 50 plays, so keep our own (per user)
 export async function syncHistory(): Promise<number> {
@@ -31,12 +31,23 @@ export async function syncHistory(): Promise<number> {
 export async function syncUser(userId: string): Promise<number> {
   return runAs(userId, async () => {
     const n = await syncHistory();
-    snapshotGenres(await buildTaste());
+    // the taste costs about seven spotify calls, so only build it when a snapshot or release check is due
+    if (snapshotDue() || releasesDue()) {
+      const t = await buildTaste();
+      snapshotGenres(t);
+      await checkReleases(t);
+    }
     return n;
   });
 }
 
-export async function syncAll(): Promise<number> {
+// a slow run must not overlap the next one, callers just wait for the one in progress
+let running: Promise<number> | null = null;
+export function syncAll(): Promise<number> {
+  return (running ??= runAll().finally(() => (running = null)));
+}
+
+async function runAll(): Promise<number> {
   const users = db.prepare("select id from users where connected = 1 and blocked = 0").all() as { id: string }[];
   let total = 0;
   for (const u of users) {
@@ -56,6 +67,10 @@ export function startPoller() {
   setTimeout(() => sendReport(), 5000);
   setInterval(() => sendReport(), 15 * 60_000).unref();
   setInterval(() => syncAll().catch(() => {}), 15 * 60_000).unref();
-  setInterval(() => pruneOld(), 6 * 3600_000).unref();
-  pruneOld();
+  const prune = () => {
+    pruneOld();
+    pruneNotifications();
+  };
+  setInterval(prune, 6 * 3600_000).unref();
+  prune();
 }

@@ -7,6 +7,7 @@ const dir = process.env.DATA_DIR ?? path.join(process.cwd(), "data");
 fs.mkdirSync(dir, { recursive: true });
 export const dbPath = path.join(dir, "resonance.db");
 export const db = new DatabaseSync(dbPath);
+db.exec("pragma busy_timeout = 5000");
 
 // single-user tables from v1 are kept as *_legacy
 const hasUserCol = (t: string) => (db.prepare(`pragma table_info(${t})`).all() as { name: string }[]).some((c) => c.name === "user_id");
@@ -32,6 +33,10 @@ db.exec(`
   create table if not exists remote_users(
     instance text, user_id text, name text, created_at integer, last_seen integer, plays integer, connected integer, reported_at integer,
     primary key(instance, user_id));
+  create table if not exists notifications(
+    user_id text, id text, kind text, title text, body text, url text, image text, created_at integer, seen integer default 0,
+    primary key(user_id, id));
+  create table if not exists shares(token text primary key, user_id text unique, data text not null, created_at integer);
   create index if not exists events_ts on events(ts);
   create index if not exists calls_ts on spotify_calls(ts);
 `);
@@ -82,7 +87,18 @@ export function pruneOld(days = 60) {
 }
 
 export function deleteUserData(userId: string, withAccount = true) {
-  for (const t of ["plays", "snapshots", "feedback", "sessions"]) db.prepare(`delete from ${t} where user_id = ?`).run(userId);
-  db.prepare("delete from events where user_id = ?").run(userId);
+  for (const t of ["plays", "snapshots", "feedback", "sessions", "notifications", "shares", "events", "spotify_calls"]) {
+    db.prepare(`delete from ${t} where user_id = ?`).run(userId);
+  }
+  db.prepare("delete from kv where k = ?").run(`releases_checked:${userId}`);
   if (withAccount) db.prepare("delete from users where id = ?").run(userId);
+}
+
+// flushes and closes the database, for a clean exit
+export function closeDb() {
+  try {
+    db.close();
+  } catch {
+    // already closed
+  }
 }

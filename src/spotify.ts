@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import { uid } from "./context.js";
 import { db, logCall } from "./db.js";
+import { pool } from "./limit.js";
 import { getSetting } from "./settings.js";
 import type { Artist, Range, Release, Track } from "./types.js";
 
@@ -106,16 +107,23 @@ async function accessToken(): Promise<string> {
   }
 }
 
+// a feed build fires dozens of calls at once, which gets rate limited, so only a few go out at a time
+const slot = pool(6);
+
 async function call(method: string, path: string, params: Record<string, string | number> = {}, body?: unknown, retry = true): Promise<any> {
   const url = new URL(API + path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
-  const t0 = Date.now();
+  let t0 = Date.now();
   let status = 0;
   try {
-    const res = await fetch(url, {
-      method,
-      headers: { Authorization: `Bearer ${await accessToken()}`, ...(body ? { "Content-Type": "application/json" } : {}) },
-      body: body ? JSON.stringify(body) : undefined,
+    const token = await accessToken();
+    const res = await slot(() => {
+      t0 = Date.now(); // timed from when the request leaves, not from when it queued
+      return fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, ...(body ? { "Content-Type": "application/json" } : {}) },
+        body: body ? JSON.stringify(body) : undefined,
+      });
     });
     status = res.status;
     if (res.status === 429 && retry) {

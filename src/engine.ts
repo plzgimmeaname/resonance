@@ -1,4 +1,4 @@
-import { uid } from "./context.js";
+import { localTime, uid } from "./context.js";
 import { artistGenres, db, feedback, upsertArtist } from "./db.js";
 import { askClaude, concertsFor, similarArtists, upcomingEvents, type ConcertEvent } from "./extras.js";
 import { spotify } from "./spotify.js";
@@ -18,7 +18,6 @@ const settle = async <T>(p: Promise<T>, fallback: T): Promise<T> => {
     return fallback;
   }
 };
-
 
 export interface Taste {
   artists: Record<Range, Artist[]>;
@@ -80,7 +79,6 @@ export async function buildTaste(): Promise<Taste> {
 const sortedGenres = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1]);
 const topGenres = (t: Taste, n: number, skip = 0) => sortedGenres(t.genreWeights).slice(skip, skip + n);
 
-
 interface PlayRow {
   played_at: string;
   artist: string;
@@ -98,22 +96,23 @@ export function lifetime() {
   const dayset = new Set<string>();
   let ms = 0;
   for (const r of rows) {
-    const d = new Date(r.played_at);
-    hours[d.getHours()]++;
-    days[d.getDay()]++;
+    const t = localTime(r.played_at);
+    hours[t.hour]++;
+    days[t.day]++;
     ms += r.duration ?? 0;
     byArtist.set(r.artist, (byArtist.get(r.artist) ?? 0) + 1);
     const m = r.played_at.slice(0, 7);
     monthly.set(m, (monthly.get(m) ?? 0) + 1);
-    dayset.add(d.toLocaleDateString("en-CA"));
+    dayset.add(t.date);
   }
-  // streak of days ending today or yesterday
+  // streak of days ending today or yesterday, on the user's clock
   let streak = 0;
-  const cur = new Date();
-  if (!dayset.has(cur.toLocaleDateString("en-CA"))) cur.setDate(cur.getDate() - 1);
-  while (dayset.has(cur.toLocaleDateString("en-CA"))) {
+  const cur = new Date(`${localTime(Date.now()).date}T00:00:00Z`);
+  const key = () => cur.toISOString().slice(0, 10);
+  if (!dayset.has(key())) cur.setUTCDate(cur.getUTCDate() - 1);
+  while (dayset.has(key())) {
     streak++;
-    cur.setDate(cur.getDate() - 1);
+    cur.setUTCDate(cur.getUTCDate() - 1);
   }
   return {
     plays: rows.length,
@@ -135,7 +134,7 @@ function genresAtHour(hour: number): Map<string, number> {
   const m = new Map<string, number>();
   for (const r of rows) {
     if (!r.artist_id) continue;
-    const h = new Date(r.played_at).getHours();
+    const h = localTime(r.played_at).hour;
     const dist = Math.min(Math.abs(h - hour), 24 - Math.abs(h - hour));
     if (dist > 2) continue;
     const gs = genres.get(r.artist_id) ?? [];
@@ -149,14 +148,17 @@ export function drift() {
   return rows.reverse().map((r) => ({ day: r.day, genres: JSON.parse(r.genres) as [string, number][] }));
 }
 
+// one snapshot per user per UTC day, so the background job can skip rebuilding the taste once it has one
+const today = () => new Date().toISOString().slice(0, 10);
+export const snapshotDue = () => !db.prepare("select 1 from snapshots where user_id = ? and day = ?").get(uid(), today());
+
 export function snapshotGenres(t: Taste) {
   const total = [...t.rangeGenres.medium.values()].reduce((a, b) => a + b, 0) || 1;
   const top = sortedGenres(t.rangeGenres.medium).slice(0, 12).map(([g, w]) => [g, Math.round((w / total) * 1000) / 10]);
   if (!top.length) return;
-  const day = new Date().toLocaleDateString("en-CA");
+  const day = today();
   db.prepare("insert into snapshots(user_id, day, genres) values(?,?,?) on conflict(user_id, day) do update set genres = excluded.genres").run(uid(), day, JSON.stringify(top));
 }
-
 
 function risingFading(t: Taste) {
   const norm01 = (m: Map<string, number>) => {
@@ -214,7 +216,6 @@ function persona(diversity: number, fresh: number, loyalty: number) {
   return { name: "The Balanced Listener", blurb: "A healthy mix of old favourites and fresh finds." };
 }
 
-
 export interface Rec {
   track: Track;
   reason: string;
@@ -233,7 +234,7 @@ export async function recommend(t: Taste, mode: RecMode = "similar"): Promise<Re
   if (mode === "deepcuts") seeds = [];
   else if (mode === "adventurous") seeds = topGenres(t, 5, 4);
   else if (mode === "now") {
-    const h = new Date().getHours();
+    const h = localTime(Date.now()).hour;
     seeds = sortedGenres(genresAtHour(h)).slice(0, 4);
     if (!seeds.length) seeds = topGenres(t, 4);
     label = (g) => `Your usual ${g} for ${hourLabel(h)}`;
@@ -287,7 +288,6 @@ export async function recommend(t: Taste, mode: RecMode = "similar"): Promise<Re
   }
   return out.slice(0, 40);
 }
-
 
 export type FeedItem =
   | { type: "release"; release: Release; reason: string }
@@ -395,12 +395,30 @@ export async function buildFeed(t: Taste): Promise<FeedItem[]> {
   return feed;
 }
 
-
 export interface TasteCode {
   v: 1;
   name: string;
   genres: [string, number][];
   artists: string[];
+}
+
+// reads a friend's code (base64 json) and keeps only well formed, size capped entries
+export function parseTasteCode(raw: unknown): TasteCode {
+  const bad = new Error("That doesn't look like a valid taste code.");
+  let c: Record<string, unknown>;
+  try {
+    c = JSON.parse(Buffer.from(String(raw ?? "").trim(), "base64").toString("utf8"));
+  } catch {
+    throw bad;
+  }
+  if (!c || c.v !== 1 || !Array.isArray(c.genres) || !Array.isArray(c.artists)) throw bad;
+  const genres = c.genres
+    .filter((g): g is [string, number] => Array.isArray(g) && typeof g[0] === "string" && typeof g[1] === "number" && Number.isFinite(g[1]) && g[1] >= 0)
+    .slice(0, 60)
+    .map(([name, w]): [string, number] => [name.slice(0, 60), w]);
+  const artists = c.artists.filter((a): a is string => typeof a === "string").slice(0, 120).map((a) => a.slice(0, 100));
+  if (!genres.length && !artists.length) throw bad;
+  return { v: 1, name: String(c.name ?? "A friend").slice(0, 60) || "A friend", genres, artists };
 }
 
 export function exportTaste(t: Taste, name: string): TasteCode {

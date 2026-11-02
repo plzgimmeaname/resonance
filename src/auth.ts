@@ -36,7 +36,7 @@ declare module "express-serve-static-core" {
 }
 
 // runs on every request, finds the user from the cookie and updates last seen
-export function userSession(req: Request, res: Response, next: NextFunction) {
+export function userSession(req: Request, _res: Response, next: NextFunction) {
   const t = parseCookies(req).rid;
   if (t) {
     const row = db

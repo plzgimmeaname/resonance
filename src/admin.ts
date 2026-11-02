@@ -10,6 +10,7 @@ import {
 import { db, dbPath, deleteUserData, logEvent } from "./db.js";
 import { getSetting, saveSettings, type SettingKey } from "./settings.js";
 import { syncAll, syncUser } from "./history.js";
+import { validReportUrl } from "./remote.js";
 
 const startedAt = Date.now();
 const logs: string[] = [];
@@ -171,6 +172,8 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
     const body = req.body as Partial<Record<SettingKey, string>>;
     if (body.clientId !== undefined && body.clientId.trim() && !/^[0-9a-f]{32}$/i.test(body.clientId.trim()))
       return res.status(400).json({ error: "That doesn't look like a Spotify Client ID (it's 32 letters and numbers)." });
+    const url = body.reportUrl?.trim();
+    if (url && url !== "-" && !validReportUrl(url)) return res.status(400).json({ error: "The collector URL must start with https://" });
     const before = getSetting("clientId");
     const patch: Partial<Record<SettingKey, string>> = {};
     for (const k of ["clientId", "lastfm", "ticketmaster", "city", "country", "anthropic", "reportUrl", "reportKey"] as SettingKey[]) {
@@ -244,12 +247,12 @@ export function registerAdmin(app: Express, hooks: { clearCache: () => number; c
     const data = rows<Record<string, unknown>>("select datetime(e.ts / 1000, 'unixepoch') time, u.name user, e.kind, e.detail from events e left join users u on u.id = e.user_id order by e.ts");
     res.type("text/csv").attachment("usage.csv").send(toCsv(["time_utc", "user", "kind", "detail"], data.map((r) => Object.values(r))));
   });
-  // the backup has tokens, api keys and admin hash removed
+  // the backup has tokens, api keys, share links and admin hash removed
   api.get("/export/backup.db", (_req, res: Response) => {
     const tmp = path.join(os.tmpdir(), `resonance-backup-${Date.now()}.db`);
     db.exec(`vacuum into '${tmp.replace(/'/g, "''")}'`);
     const copy = new DatabaseSync(tmp);
-    copy.exec("update users set access = null, refresh = null; delete from kv; delete from sessions;");
+    copy.exec("update users set access = null, refresh = null; delete from kv; delete from sessions; delete from shares;");
     copy.close();
     res.download(tmp, "resonance-backup.db", () => fs.rm(tmp, { force: true }, () => {}));
   });
