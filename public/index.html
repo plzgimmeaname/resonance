@@ -21,6 +21,7 @@
       <span id="ind"></span>
     </nav>
     <div id="account" hidden>
+      <button id="bell" title="New releases" aria-label="New releases">🔔<span id="bell-n" class="badge" hidden></span></button>
       <img id="me-img" alt="" hidden><span id="me-name"></span>
       <button id="logout">sign out</button><button id="delete-me">delete my data</button>
     </div>
@@ -38,6 +39,17 @@
       <div id="pl-list"></div>
     </div>
   </div>
+
+  <div id="nt-modal" class="modal" hidden>
+    <div class="panel">
+      <div class="row"><h3 style="margin:0;margin-right:auto">New releases</h3><button class="ghost" id="nt-close">✕</button></div>
+      <div id="nt-list"></div>
+    </div>
+  </div>
+
+  <template id="t-note">
+    <a class="note" data-slot="note" target="_blank" rel="noopener"><slot name="cover"></slot><span><slot name="title"></slot><br><small><slot name="body"></slot> · <slot name="when"></slot></small></span></a>
+  </template>
 
   <!-- templates used by more than one page -->
   <template id="t-actions">

@@ -1,0 +1,22 @@
+<section class="view">
+  <div class="row"><h1>Import your history</h1></div>
+  <p class="sub" style="margin-top:0">Spotify's API only shows your last 50 plays. Your full history is in Spotify's privacy export, and importing it fills your lifetime stats right away.</p>
+  <div class="cols">
+    <div class="panel">
+      <h3>1. Request your data</h3>
+      <ol class="steps">
+        <li>Open <a href="https://www.spotify.com/account/privacy/" target="_blank" rel="noopener">spotify.com/account/privacy ↗</a> and sign in.</li>
+        <li>Tick <b>Extended streaming history</b> (every play since you joined, takes up to 30 days) or <b>Account data</b> (the last year, takes about 5 days).</li>
+        <li>Confirm the email Spotify sends, then wait for the download link.</li>
+        <li>Unzip the download.</li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h3>2. Pick the files</h3>
+      <p style="color:var(--muted);font-size:13px;margin-top:0">Choose every <code>Streaming_History_Audio_*.json</code> (extended) or <code>StreamingHistory_music_*.json</code> (account data) file. Other files are ignored. Plays you already have here are skipped, so importing twice is safe.</p>
+      <input type="file" id="files" accept=".json,application/json" multiple hidden>
+      <button class="btn" id="pick">Choose files</button>
+      <div id="progress" class="import-progress" hidden></div>
+    </div>
+  </div>
+</section>

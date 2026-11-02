@@ -7,6 +7,7 @@
       <button data-range="long">All time</button>
     </div>
     <button class="ghost" id="share">⤓ Share card</button>
+    <button class="ghost" id="share-link">🔗 Share link</button>
   </div>
   <div id="stats"></div>
 
@@ -35,7 +36,7 @@
         <div class="panel"><h3>Taste over time</h3><slot name="drift"></slot></div>
       </div>
       <div class="panel" style="margin-bottom:24px">
-        <h3>Your lifetime history <span style="color:var(--muted);font-weight:400;font-size:13px" data-slot="since"></span></h3>
+        <h3>Your lifetime history <span style="color:var(--muted);font-weight:400;font-size:13px" data-slot="since"></span> <a href="/import" style="font-weight:400;font-size:13px">import from Spotify →</a></h3>
         <div data-slot="lifetime">
           <div class="statgrid">
             <div class="stat"><div class="n" data-slot="plays">0</div><div class="l">Plays tracked</div></div>
@@ -50,10 +51,24 @@
             <div><div style="color:var(--muted);font-size:13px;margin-bottom:6px">Most played (tracked)</div><slot name="played"></slot></div>
           </div>
         </div>
-        <div class="empty" style="padding:20px 0" data-slot="no-lifetime">Spotify only reports your last 50 plays, so Resonance records them in the background while it's running. Keep it open (or run it now and then) and your lifetime stats build up here.</div>
+        <div class="empty" style="padding:20px 0" data-slot="no-lifetime">Spotify only reports your last 50 plays, so Resonance records them in the background while it's running. Keep it open (or run it now and then) and your lifetime stats build up here, or <a href="/import">import your full history from Spotify</a>.</div>
       </div>
     </div>
   </template>
+
+  <div id="share-modal" class="modal" hidden>
+    <div class="panel">
+      <div class="row"><h3 style="margin:0;margin-right:auto">Share link</h3><button class="ghost" id="share-close">✕</button></div>
+      <p style="color:var(--muted);font-size:13px;margin-top:0">Anyone with the link sees a snapshot of your persona, top artists, songs and genres from right now, and can blend with you. It doesn't update by itself: make a new link to refresh it (the old one stops working).</p>
+      <p id="share-local" style="color:var(--bad);font-size:13px" hidden>This copy only runs on this computer, so the link won't open for other people unless the site is reachable from the internet (see the README).</p>
+      <textarea id="share-url" readonly rows="2"></textarea>
+      <div class="row" style="gap:8px">
+        <button class="btn" id="share-copy">Copy</button>
+        <button class="ghost" id="share-new">New link</button>
+        <button class="ghost" id="share-off">Turn off</button>
+      </div>
+    </div>
+  </div>
 
   <template id="t-rank">
     <div class="rank" data-slot="rank"><div class="i" data-slot="i"></div><img data-slot="img" alt="" loading="lazy"><div class="t"><div data-slot="title"></div><div data-slot="sub"></div></div></div>

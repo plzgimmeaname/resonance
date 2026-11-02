@@ -4,9 +4,23 @@ import { $, banner, empty, h, make, store } from "/lib/dom.js";
 // server status and the signed in user, filled in by main.js. go() is the router's navigate
 export const app = { status: null, me: null, go: null };
 
+// a friend's taste code from a share page, kept through the spotify sign-in (see share.js)
+export const pendingBlend = {
+  has: () => { try { return Boolean(sessionStorage.getItem("blend-code")); } catch { return false; } },
+  take() {
+    try {
+      const c = sessionStorage.getItem("blend-code");
+      sessionStorage.removeItem("blend-code");
+      return c;
+    } catch { return null; }
+  },
+};
+
 // all backend calls go through here, 401 means not logged in
+// the browser's clock offset goes along with every call, so hours and streaks are on the user's own time
+const tz = String(new Date().getTimezoneOffset());
 export async function api(path, opts) {
-  const r = await fetch(path, opts);
+  const r = await fetch(path, { ...opts, headers: { "X-Tz-Offset": tz, ...opts?.headers } });
   if (r.status === 401) throw Object.assign(new Error("not_connected"), { code: 401 });
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(data.error || r.statusText);

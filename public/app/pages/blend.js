@@ -1,7 +1,8 @@
 import { $, countUp, empty, h, make, reveal, skeleton } from "/lib/dom.js";
-import { api, handleErr, post, savePlaylist, trackTile } from "/app/shared.js";
+import { api, handleErr, pendingBlend, post, savePlaylist, trackTile } from "/app/shared.js";
 
-export function mount(root) {
+// ?code= comes from a friend's share page and compares right away
+export function mount(root, { query, setQuery }) {
   const mine = $("#mycode", root), out = $("#blend-result", root);
   api("/api/blend/export").then((r) => (mine.value = r.code)).catch((e) => handleErr(mine.parentElement, e));
 
@@ -29,4 +30,11 @@ export function mount(root) {
       $("#blend-save", out).onclick = (e) => savePlaylist(`Blend · you + ${r.theirName}`, r.tracks.map((x) => x.track.uri), e.target);
     } catch (e) { out.replaceChildren(empty(e.message)); }
   };
+
+  const shared = query.get("code") || pendingBlend.take();
+  if (shared) {
+    $("#theircode", root).value = shared;
+    setQuery({ code: null });
+    $("#compare", root).click();
+  }
 }

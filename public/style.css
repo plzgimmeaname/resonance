@@ -47,6 +47,17 @@ nav a:hover, nav a.active { color: var(--text); }
 #account img { width: 26px; height: 26px; border-radius: 50%; }
 #account button { background: none; border: 0; color: var(--muted); cursor: pointer; font: inherit; transition: color .2s; }
 #account button:hover { color: var(--text); }
+#bell { position: relative; font-size: 15px !important; }
+#bell .badge { position: absolute; top: -6px; right: -8px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px; background: var(--accent); color: var(--bg); font-size: 10px; font-weight: 600; line-height: 16px; text-align: center; }
+#bell .badge[hidden] { display: none; }
+.modal .note { display: flex; align-items: center; gap: 12px; padding: 8px; border-radius: 12px; color: var(--text); text-decoration: none; }
+.modal .note:hover { background: var(--surface2); }
+.modal .note small { color: var(--muted); }
+.modal .note.unseen { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.modal .note img, .modal .note .ph { width: 40px; height: 40px; flex: none; border-radius: 8px; object-fit: cover; background: var(--surface2); }
+.steps { padding-left: 20px; margin: 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+.steps b { color: var(--text); font-weight: 500; }
+.import-progress { margin-top: 16px; color: var(--muted); font-size: 13px; }
 
 main { max-width: 980px; margin: 0 auto; padding: 48px 32px 96px; }
 .view { animation: up .6s var(--ease); }

@@ -1,5 +1,5 @@
-import { $, $$, bar, countUp, empty, h, hist, make, reveal, skeleton } from "/lib/dom.js";
-import { api, app, handleErr } from "/app/shared.js";
+import { $, $$, banner, bar, countUp, empty, h, hist, make, reveal, skeleton } from "/lib/dom.js";
+import { api, app, handleErr, post } from "/app/shared.js";
 
 const RANGES = ["short", "medium", "long"];
 const COLORS = ["#7c5cff", "#ff5c8a", "#3ddc97", "#ffb84d", "#4dc3ff", "#c77dff"];
@@ -74,6 +74,35 @@ function shareCard(s) {
   a.click();
 }
 
+// public link with a snapshot of your stats, see src/share.ts
+function shareLink(root) {
+  const modal = $("#share-modal", root), url = $("#share-url", root);
+  const show = (r) => {
+    if (!r) return (modal.hidden = true);
+    url.value = `${location.origin}/s/${r.token}`;
+    $("#share-local", root).hidden = !["127.0.0.1", "localhost", "[::1]"].includes(location.hostname);
+    modal.hidden = false;
+  };
+  const run = (btn, fn) => async () => {
+    btn.disabled = true;
+    try { await fn(); } catch (e) { banner(e.message); } finally { btn.disabled = false; }
+  };
+  $("#share-link", root).onclick = run($("#share-link", root), async () => show((await api("/api/share")) ?? (await post("/api/share", {}))));
+  $("#share-new", root).onclick = run($("#share-new", root), async () => show(await post("/api/share", {})));
+  $("#share-off", root).onclick = run($("#share-off", root), async () => {
+    await api("/api/share", { method: "DELETE" });
+    modal.hidden = true;
+    banner("Share link turned off.", true);
+  });
+  $("#share-copy", root).onclick = async (e) => {
+    await navigator.clipboard.writeText(url.value);
+    e.target.textContent = "Copied ✓";
+    setTimeout(() => (e.target.textContent = "Copy"), 1500);
+  };
+  $("#share-close", root).onclick = () => (modal.hidden = true);
+  modal.addEventListener("click", (e) => e.target === modal && (modal.hidden = true));
+}
+
 // ?range= picks the time range
 export function mount(root, { query, setQuery }) {
   const el = $("#stats", root);
@@ -130,5 +159,6 @@ export function mount(root, { query, setQuery }) {
     if (row) artistDive(row);
   });
   $("#share", root).onclick = () => stats && shareCard(stats);
+  shareLink(root);
   load();
 }

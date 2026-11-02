@@ -6,6 +6,7 @@ A little website that runs **on your own computer** (or a small server). People 
 - **Stats**: top artists, songs and genres
 - **Discover**: new music picked for their taste (savable as a Spotify playlist)
 - **Blend**: compare taste with a friend's
+- **New releases**: a 🔔 in the corner when your top artists put out something new
 
 Several people can use one copy, each with their own private stats and history. There is also an **admin panel** for the person running the site (you), to see usage, manage users and set the API keys. Nothing is uploaded anywhere except to Spotify and the optional services you switch on.
 
@@ -82,6 +83,7 @@ The app keeps running in the background (and restarts with Docker). It is only r
 |---|---|
 | See logs | `docker compose logs -f` |
 | Stop it | `docker compose down` |
+| Check it is healthy | `docker compose ps` (shows `healthy` after about 15 seconds) |
 | Start it again | `docker compose up -d` |
 | Update after changing code | `docker compose up -d --build` |
 
@@ -133,6 +135,8 @@ The backup file has Spotify tokens, API keys and the admin password stripped out
 
 - **Song previews**: every song has a **▶ Preview** button that plays a 30-second clip. Spotify no longer provides clips to new apps, so Resonance looks the song up on Apple's free iTunes catalog when you click. A few songs have no clip and show "No preview".
 - **Stats look empty?** Spotify only reveals your last 50 plays, so Resonance keeps its own record *while it's running*. Leave it running while you listen and your history builds up. "Right now" recommendations and "Taste over time" get better after a few days.
+- **Import your full history**: request your data at https://www.spotify.com/account/privacy/ (pick **Extended streaming history** for everything, or **Account data** for the last year), unzip it when Spotify emails you, then go to **/import** (there's a link on the Stats tab) and pick the `Streaming_History_Audio_*.json` or `StreamingHistory_music_*.json` files. Plays you already have are skipped, so importing twice is safe.
+- **New releases**: twice a day Resonance checks your top artists for anything released in the last two weeks and shows it under the 🔔 at the top. It only checks while the app is running.
 - **Recommendations feel off?** Use 👍 and 👎. It learns what you like, and 👎 hides that artist.
 - **Feed**: scroll through it one card at a time; songs autoplay as they come into view (toggle with the Autoplay button) and move on when the clip ends. Browsers may need one click on the page first.
 - **Add to a playlist**: every song has a **＋ Playlist** button that adds it to one of your existing playlists.
@@ -140,7 +144,7 @@ The backup file has Spotify tokens, API keys and the admin password stripped out
 - **Blend with a friend**: copy your code from the Blend tab and send it to them, then paste theirs. It works between people on different copies of the app too.
 - **Your data**: **delete my data** (top right) wipes your history, votes and account from the site.
 - **Limit**: Spotify development-mode apps allow 5 users. More than that needs Spotify's approval, which they only give to registered businesses.
-- **Share your stats**: the **Share card** button on the Stats tab downloads a picture.
+- **Share your stats**: the **Share card** button on the Stats tab downloads a picture. **Share link** makes a page with a snapshot of your persona, top artists, songs and genres, plus a **Blend with me** button. It doesn't update on its own (make a new link to refresh it, and the old one stops working), and **Turn off** deletes it. Other people can only open it if your copy is reachable from the internet (see "Seeing accounts from other copies" for the tunnel idea).
 - **Install it like an app**: in Chrome or Edge, click the install icon in the address bar.
 
 ---
@@ -166,8 +170,8 @@ The backup file has Spotify tokens, API keys and the admin password stripped out
 
 If friends run their own copy with the **same Client ID**, their accounts can show up in your admin panel (Users tab, "Other copies"). One copy collects, the others report to it:
 
-1. **Your copy** must be reachable over https (for example through a tunnel such as Cloudflare Tunnel). In **Settings**, set a **Shared key** and leave the collector URL empty.
-2. **Their copies**: in **Settings** (or `.env` as `REPORT_URL` and `REPORT_KEY`), set the collector URL to your copy's address and the same key.
+1. **Your copy** must be reachable over https (for example through a tunnel such as Cloudflare Tunnel). In **Settings**, set a **Shared key** and leave the collector URL empty. Without a shared key the collector stays off (the Client ID alone isn't secret, since it's in every Spotify sign-in link).
+2. **Their copies**: in **Settings** (or `.env` as `REPORT_URL` and `REPORT_KEY`), set the collector URL to your copy's `https://` address and the same key.
 
 Reporting sends only a Spotify name and ID, join and last-seen times and a play count, every 15 minutes. Never tokens or listening history. Copies that report show this in a notice on their connect page, and leaving the URL empty turns it off.
 
@@ -191,6 +195,8 @@ Add these in the admin panel under **Settings** to switch on more features:
 - `src/history.ts`: background play-history collector
 - `src/db.ts`: SQLite storage (`data/resonance.db`); `src/context.ts`: which user a request belongs to
 - `src/extras.ts`: optional Last.fm / Ticketmaster / Claude
+- `src/importer.ts`: Spotify privacy-export import; `src/notify.ts`: new-release notifications; `src/share.ts`: public share links (`/s/:token`, page in `public/share.html`)
+- `src/limit.ts`: rate limiting (240 API requests a minute per user, 20 for refreshes, Claude and blend)
 - `Dockerfile`, `docker-compose.yml`: container setup (listens on `HOST`, default `127.0.0.1`)
 - `public/`: the web UI (plain HTML, CSS and JS, no build step)
   - `lib/router.js`: browser routing (`/feed`, `/stats?range=short`, `/admin/users`, …); each route is a page in `app/pages/` or `admin/pages/` made of an `.html` file (markup and `<template>`s) and a `.js` file exporting `mount(root, ctx)`
@@ -198,4 +204,8 @@ Add these in the admin panel under **Settings** to switch on more features:
   - `app/main.js`, `admin/main.js`: route tables and sign-in guards; `app/shared.js`, `admin/shared.js`: api calls and pieces several pages use
   - adding a page: drop `name.html` + `name.js` into a pages folder, add it to the list in `main.js` and to the matching `app.get([...])` in `src/server.ts` or `src/admin.ts`
 
-Spotify removed several API features for new apps (recommendations, audio features, popularity, batch lookups) and caps search at 10 results. Resonance builds recommendations from your genre profile plus search, filtered against what you already play. `npm run typecheck` checks the TypeScript, and `npm run build` compiles it to `dist/` (this needs Node.js; Docker users don't need it). `src/remote.ts`: reporting between copies.
+Spotify removed several API features for new apps (recommendations, audio features, popularity, batch lookups) and caps search at 10 results. Resonance builds recommendations from your genre profile plus search, filtered against what you already play. `npm test` runs the tests in `test/` (Node's built-in runner, each file gets its own temporary database and Spotify is stubbed), `npm run typecheck` checks the TypeScript including the tests, and `npm run build` compiles it to `dist/` (this needs Node.js 22.5 or newer; Docker users don't need it). CI runs all three plus `npm audit` and a Docker build. `src/remote.ts`: reporting between copies.
+
+## License
+
+MIT, see [LICENSE](LICENSE).

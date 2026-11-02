@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0e0f13">
+  <meta name="robots" content="noindex">
+  <title>Resonance</title>
+  <link rel="icon" href="/icon.svg">
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <a class="brand" href="/" style="text-decoration:none;color:inherit">resonance</a>
+  </header>
+
+  <main>
+    <div id="banner" class="banner" hidden></div>
+    <!-- filled from /api/shared/:token by share.js -->
+    <div id="page"></div>
+  </main>
+
+  <template id="t-share">
+    <section class="view">
+      <div class="persona">
+        <div><slot name="name"></slot>'s listening personality</div>
+        <h2 data-slot="persona"></h2>
+        <div data-slot="blurb"></div>
+      </div>
+      <div class="row" style="justify-content:center;margin-bottom:24px">
+        <a class="btn" data-slot="blend">Blend with <slot name="name2"></slot></a>
+      </div>
+      <div class="cols">
+        <div class="panel"><h3>Top artists</h3><slot name="artists"></slot></div>
+        <div class="panel"><h3>Top songs</h3><slot name="tracks"></slot></div>
+      </div>
+      <div class="panel" style="margin-bottom:24px">
+        <h3>Top genres <span style="color:var(--muted);font-weight:400;font-size:13px" data-slot="diversity"></span></h3>
+        <slot name="genres"></slot>
+      </div>
+      <p class="sub" style="font-size:13px;text-align:center" data-slot="when"></p>
+    </section>
+  </template>
+
+  <template id="t-rank">
+    <div class="rank"><div class="i" data-slot="i"></div><img data-slot="img" alt="" loading="lazy"><div class="t"><div data-slot="title"></div><div data-slot="sub"></div></div></div>
+  </template>
+
+  <template id="t-bar">
+    <div class="bar" data-slot="bar"><div class="name" data-slot="name"></div><div class="track"><div class="fill" data-slot="fill"></div></div><div class="v" data-slot="v"></div></div>
+  </template>
+
+  <script type="module" src="/share/share.js"></script>
+</body>
+</html>

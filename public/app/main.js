@@ -1,9 +1,9 @@
-import { $, $$, banner, moveIndicator } from "/lib/dom.js";
+import { $, $$, banner, empty, make, moveIndicator } from "/lib/dom.js";
 import { createRouter } from "/lib/router.js";
-import { api, app, post, stopPreview } from "/app/shared.js";
+import { api, app, cover, pendingBlend, post, stopPreview } from "/app/shared.js";
 
 // path → page in app/pages/ (an .html and a .js with the same name)
-const routes = Object.fromEntries(["connect", "feed", "stats", "discover", "concerts", "blend"].map((p) => [`/${p}`, `/app/pages/${p}`]));
+const routes = Object.fromEntries(["connect", "feed", "stats", "discover", "concerts", "blend", "import"].map((p) => [`/${p}`, `/app/pages/${p}`]));
 
 const router = createRouter({
   outlet: $("#page"),
@@ -40,9 +40,37 @@ async function init() {
     $("#me-name").textContent = app.me.name;
     // tabs that need an optional api key
     $("#tab-concerts").hidden = !app.status.features.concerts;
+    loadNotifications();
+    // back from signing in after clicking "blend with me" on a share page
+    if (pendingBlend.has() && location.pathname === "/") history.replaceState(null, "", "/blend");
   }
   router.start();
 }
+
+// new releases from your top artists, checked by the server in the background
+let notes = [];
+async function loadNotifications() {
+  try {
+    const r = await api("/api/notifications");
+    notes = r.items;
+    $("#bell-n").textContent = r.unread > 9 ? "9+" : String(r.unread);
+    $("#bell-n").hidden = !r.unread;
+  } catch {}
+}
+const closeNotes = () => { $("#nt-modal").hidden = true; };
+$("#bell").onclick = () => {
+  $("#nt-list").replaceChildren(...(notes.length
+    ? notes.map((n) => make("t-note", {
+      note: { href: n.url || null, class: n.seen ? "note" : "note unseen" },
+      cover: cover(n.image), title: n.title, body: n.body, when: new Date(n.created_at).toLocaleDateString(),
+    }))
+    : [empty("Nothing yet. New songs and albums from your top artists show up here.", { style: "padding:24px 0" })]));
+  $("#nt-modal").hidden = false;
+  if (notes.some((n) => !n.seen)) post("/api/notifications/seen", {}).then(() => { $("#bell-n").hidden = true; notes.forEach((n) => (n.seen = 1)); }).catch(() => {});
+};
+$("#nt-close").addEventListener("click", closeNotes);
+$("#nt-modal").addEventListener("click", (e) => (e.target.id === "nt-modal" || e.target.closest("a.note")) && closeNotes());
+document.addEventListener("keydown", (e) => e.key === "Escape" && closeNotes());
 
 $("#logout").onclick = async () => { await post("/auth/logout", {}); location.assign("/"); };
 $("#delete-me").onclick = async () => {
