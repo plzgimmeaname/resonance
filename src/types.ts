@@ -22,6 +22,21 @@ export interface Track {
   playedAt?: string;
 }
 
+// a track in a playlist, position is its index in the playlist (local files and episodes take a slot too)
+export interface PlaylistTrack extends Track {
+  position: number;
+}
+
+export interface PlaylistInfo {
+  id: string;
+  name: string;
+  image?: string;
+  tracks: number;
+  owned: boolean;
+  collaborative: boolean;
+  public: boolean | null;
+}
+
 export interface Release {
   id: string;
   name: string;

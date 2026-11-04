@@ -3,12 +3,12 @@ import { uid } from "./context.js";
 import { db, logCall } from "./db.js";
 import { pool } from "./limit.js";
 import { getSetting } from "./settings.js";
-import type { Artist, Range, Release, Track } from "./types.js";
+import type { Artist, PlaylistInfo, PlaylistTrack, Range, Release, Track } from "./types.js";
 
 const API = process.env.SPOTIFY_API_URL ?? "https://api.spotify.com/v1";
 const ACCOUNTS = process.env.SPOTIFY_ACCOUNTS_URL ?? "https://accounts.spotify.com";
 export const clientId = () => getSetting("clientId");
-export const SCOPES = "user-top-read user-read-recently-played playlist-modify-private playlist-read-private playlist-read-collaborative";
+export const SCOPES = "user-top-read user-read-recently-played playlist-modify-private playlist-modify-public playlist-read-private playlist-read-collaborative";
 const RANGE: Record<Range, string> = { short: "short_term", medium: "medium_term", long: "long_term" };
 
 export class NotConnected extends Error {
@@ -89,6 +89,11 @@ export const disconnect = (userId = uid()) => {
   db.prepare("update users set access = null, refresh = null, connected = 0 where id = ?").run(userId);
 };
 export const hasPlaylistScope = () => (loadTok(uid())?.scope ?? "").includes("playlist-read-private");
+// changing a playlist needs both modify scopes, people who signed in before the public one existed have to sign in again
+export const hasPlaylistEdit = () => {
+  const s = loadTok(uid())?.scope ?? "";
+  return s.includes("playlist-modify-public") && s.includes("playlist-modify-private");
+};
 
 async function accessToken(): Promise<string> {
   const id = uid();
@@ -214,6 +219,47 @@ export const spotify = {
     return d.items
       .filter((p: any) => p && (p.owner?.id === uid() || p.collaborative))
       .map((p: any) => ({ id: p.id, name: p.name, image: img(p.images), tracks: p.tracks?.total ?? p.items?.total ?? 0 }));
+  },
+  // every playlist in the library, with flags for which ones the app may read and change
+  async allPlaylists(): Promise<PlaylistInfo[]> {
+    const out: PlaylistInfo[] = [];
+    for (let offset = 0; offset < 200; offset += 50) {
+      const d = await call("GET", "/me/playlists", { limit: 50, offset });
+      for (const p of d.items ?? []) {
+        if (!p) continue;
+        out.push({ id: p.id, name: p.name, image: img(p.images), tracks: p.tracks?.total ?? p.items?.total ?? 0, owned: p.owner?.id === uid(), collaborative: Boolean(p.collaborative), public: p.public ?? null });
+      }
+      if (!d.next) break;
+    }
+    return out;
+  },
+  // up to `max` tracks, in order. local files and episodes are skipped but still count towards positions
+  async playlistItems(id: string, max = 500): Promise<{ tracks: PlaylistTrack[]; total: number; truncated: boolean }> {
+    const tracks: PlaylistTrack[] = [];
+    let total = 0;
+    for (let offset = 0; offset < max; offset += 50) {
+      const d = await call("GET", `/playlists/${encodeURIComponent(id)}/items`, { limit: 50, offset });
+      total = d.total ?? total;
+      (d.items ?? []).forEach((e: any, i: number) => {
+        const t = e?.item ?? e?.track; // `track` is the old name for `item`
+        if (!t || e.is_local || (t.type && t.type !== "track") || !t.id) return;
+        tracks.push({ ...mapTrack(t), position: offset + i });
+      });
+      if (!d.next) break;
+    }
+    return { tracks, total, truncated: total > max };
+  },
+  // removes every copy of each uri
+  async removeFromPlaylist(playlistId: string, uris: string[]) {
+    for (let i = 0; i < uris.length; i += 100) {
+      await call("DELETE", `/playlists/${encodeURIComponent(playlistId)}/items`, {}, { items: uris.slice(i, i + 100).map((uri) => ({ uri })) });
+    }
+  },
+  // appends, or inserts at `position` when given
+  async addTracksToPlaylist(playlistId: string, uris: string[], position?: number) {
+    for (let i = 0; i < uris.length; i += 100) {
+      await call("POST", `/playlists/${encodeURIComponent(playlistId)}/items`, {}, { uris: uris.slice(i, i + 100), ...(position === undefined ? {} : { position: position + i }) });
+    }
   },
   async addToPlaylist(playlistId: string, uri: string) {
     await call("POST", `/playlists/${encodeURIComponent(playlistId)}/items`, {}, { uris: [uri] });

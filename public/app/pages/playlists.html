@@ -1,0 +1,56 @@
+<section class="view">
+  <div id="pl-out"></div>
+
+  <template id="t-plcard">
+    <a class="tile plcard" data-slot="link"><slot name="cover"></slot><div class="title" data-slot="name"></div><div class="by" data-slot="meta"></div></a>
+  </template>
+
+  <!-- one song in the clean-up lists: a checkbox, the song, how well it fits -->
+  <template id="t-refrow">
+    <div class="item refrow">
+      <input type="checkbox" data-slot="chk">
+      <slot name="cover"></slot>
+      <div class="meta"><div class="why" data-slot="why"></div><div class="title" data-slot="title"></div><div class="by" data-slot="by"></div></div>
+      <slot name="fit"></slot>
+      <slot name="actions"></slot>
+    </div>
+  </template>
+
+  <template id="t-refsug">
+    <div class="item refrow">
+      <slot name="cover"></slot>
+      <div class="meta"><div class="why" data-slot="why"></div><div class="title" data-slot="title"></div><div class="by" data-slot="by"></div></div>
+      <slot name="actions"></slot>
+      <button class="ghost add-here" data-slot="add">＋ Add here</button>
+    </div>
+  </template>
+
+  <template id="t-refine">
+    <div>
+      <div class="row">
+        <a class="ghost" href="/playlists">← Playlists</a>
+        <h1 data-slot="name"></h1>
+        <button class="ghost" id="rf-refresh">↻ Re-analyze</button>
+      </div>
+      <div data-slot="notes"></div>
+      <div class="statgrid" data-slot="stats"></div>
+      <div class="chips" data-slot="genres"></div>
+
+      <div class="row rf-sect" data-slot="flag-head"><h3 style="margin:0;margin-right:auto">Needs attention</h3><button class="ghost mini" id="rf-none">Clear selection</button></div>
+      <div class="feed" data-slot="flagged"></div>
+
+      <div class="row rf-sect"><h3 style="margin:0;margin-right:auto">Songs that would fit</h3><button class="ghost mini" id="rf-add-all">＋ Add all</button></div>
+      <div class="feed" data-slot="sugs"></div>
+
+      <div class="row rf-sect"><h3 style="margin:0;margin-right:auto" data-slot="all-title"></h3></div>
+      <div class="feed" data-slot="all"></div>
+      <button class="ghost" id="rf-more" hidden>Show all songs</button>
+
+      <div class="selbar" id="selbar" hidden>
+        <b id="sel-n"></b>
+        <button class="ghost" id="sel-copy">Save cleaned copy</button>
+        <button class="btn danger" id="sel-apply">Apply to playlist</button>
+      </div>
+    </div>
+  </template>
+</section>

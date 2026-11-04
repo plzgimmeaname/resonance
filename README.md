@@ -5,6 +5,7 @@ A little website that runs **on your own computer** (or a small server). People 
 - **Feed**: new songs and albums from artists they like, plus things they might enjoy
 - **Stats**: top artists, songs and genres
 - **Discover**: new music picked for their taste (savable as a Spotify playlist)
+- **Playlists**: tidy your existing playlists by removing duplicates and songs that don't fit, and adding ones that do
 - **Blend**: compare taste with a friend's
 - **New releases**: a 🔔 in the corner when your top artists put out something new
 
@@ -135,6 +136,7 @@ The backup file has Spotify tokens, API keys and the admin password stripped out
 
 - **Song previews**: every song has a **▶ Preview** button that plays a 30-second clip. Spotify no longer provides clips to new apps, so Resonance looks the song up on Apple's free iTunes catalog when you click. A few songs have no clip and show "No preview".
 - **Stats look empty?** Spotify only reveals your last 50 plays, so Resonance keeps its own record *while it's running*. Leave it running while you listen and your history builds up. "Right now" recommendations and "Taste over time" get better after a few days.
+- **Refine your playlists**: open the **Playlists** tab and pick one. Resonance flags duplicates (the same track twice, or another version of the same song) and songs that don't match the rest of the playlist's genres, and suggests songs that would fit. Tick what you want gone and press **Apply to playlist**. Exact duplicates are merged into one copy that stays where the first one was, and **Undo** (right after) adds removed songs back at the end. **Save cleaned copy** makes a new playlist and leaves the original alone. "Fits" is judged by genre only, since Spotify no longer shares audio data with new apps. Spotify only lets apps open playlists you own or collaborate on. If you signed in before this tab existed, it asks you to **Allow playlist editing** once (a new Spotify permission).
 - **Import your full history**: request your data at https://www.spotify.com/account/privacy/ (pick **Extended streaming history** for everything, or **Account data** for the last year), unzip it when Spotify emails you, then go to **/import** (there's a link on the Stats tab) and pick the `Streaming_History_Audio_*.json` or `StreamingHistory_music_*.json` files. Plays you already have are skipped, so importing twice is safe.
 - **New releases**: twice a day Resonance checks your top artists for anything released in the last two weeks and shows it under the 🔔 at the top. It only checks while the app is running.
 - **Recommendations feel off?** Use 👍 and 👎. It learns what you like, and 👎 hides that artist.

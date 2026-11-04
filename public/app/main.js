@@ -3,7 +3,7 @@ import { createRouter } from "/lib/router.js";
 import { api, app, cover, pendingBlend, post, stopPreview } from "/app/shared.js";
 
 // path → page in app/pages/ (an .html and a .js with the same name)
-const routes = Object.fromEntries(["connect", "feed", "stats", "discover", "concerts", "blend", "import"].map((p) => [`/${p}`, `/app/pages/${p}`]));
+const routes = Object.fromEntries(["connect", "feed", "stats", "discover", "playlists", "concerts", "blend", "import"].map((p) => [`/${p}`, `/app/pages/${p}`]));
 
 const router = createRouter({
   outlet: $("#page"),

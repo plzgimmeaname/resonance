@@ -237,3 +237,32 @@ pre.log { background: var(--surface); border: 1px solid var(--line); border-radi
 .tool .ghost { text-decoration: none; display: inline-block; margin-top: 8px; }
 .sect { margin: 0 0 12px; }
 .hist.tall { height: 100px; }
+
+/* refine playlists */
+.plcard { color: inherit; text-decoration: none; }
+.plcard:hover img { transform: translateY(-6px); box-shadow: 0 24px 40px -18px color-mix(in srgb, var(--accent) 55%, #000); }
+.refrow { cursor: default; }
+.refrow input[type="checkbox"] { width: 18px; height: 18px; flex: none; accent-color: var(--accent); cursor: pointer; }
+.refrow input[type="checkbox"]:disabled { opacity: .35; cursor: not-allowed; }
+.refrow .actions { opacity: 1; transform: none; }
+.fit { width: 86px; flex: none; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.fitbar { height: 4px; margin-top: 5px; border-radius: 4px; background: var(--surface2); overflow: hidden; }
+.fitbar i { display: block; height: 100%; width: var(--w, 0); border-radius: 4px; background: linear-gradient(90deg, var(--accent), var(--accent2)); animation: grow-x .9s var(--ease) backwards; transform-origin: left; }
+.fit.low { color: var(--bad); }
+.fit.low .fitbar i { background: var(--bad); }
+.refnote { margin: 0 0 8px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; color: var(--muted); font-size: 13px; }
+.rf-sect { margin: 40px 0 12px; }
+.selbar { position: sticky; bottom: 16px; z-index: 5; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 28px; padding: 12px 18px; border: 1px solid var(--line); border-radius: 999px; background: color-mix(in srgb, var(--surface) 88%, transparent); backdrop-filter: blur(14px); box-shadow: 0 20px 40px -20px rgba(0,0,0,.6); animation: up .4s var(--ease); }
+.selbar[hidden] { display: none; }
+.selbar b { margin-right: auto; font-weight: 500; font-size: 14px; }
+.btn.danger { background: var(--bad); color: #09090b; }
+.add-here:disabled { color: var(--ok); opacity: 1; }
+@media (max-width: 640px) {
+  .fit { display: none; }
+  .selbar { border-radius: var(--r); }
+  /* the song gets the first line, its buttons wrap underneath */
+  .refrow { flex-wrap: wrap; gap: 10px 14px; padding-right: 0; }
+  .refrow .meta { flex: 1 1 0; min-width: 120px; }
+  .refrow .actions { flex: 1 0 100%; }
+  .refrow .add-here { flex: 1 0 100%; }
+}

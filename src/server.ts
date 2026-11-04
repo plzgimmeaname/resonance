@@ -13,10 +13,11 @@ import { startPoller, syncHistory } from "./history.js";
 import { importPlays, parseHistory } from "./importer.js";
 import { rateLimit } from "./limit.js";
 import { listNotifications, markSeen } from "./notify.js";
+import { analyzePlaylist, applyClean, MAX_TRACKS } from "./playlists.js";
 import { isReporting, registerCollector, sendReport } from "./remote.js";
 import { getSetting } from "./settings.js";
 import { buildShare, createShare, deleteShare, getShare, myShare } from "./share.js";
-import { Blocked, clientId, finishLogin, hasPlaylistScope, isConnected, loginUrl, NotConnected, spotify } from "./spotify.js";
+import { Blocked, clientId, finishLogin, hasPlaylistEdit, hasPlaylistScope, isConnected, loginUrl, NotConnected, spotify } from "./spotify.js";
 import type { Range, Track } from "./types.js";
 
 captureLogs();
@@ -70,7 +71,7 @@ app.use((req, res, next) => {
 app.use(userSession);
 
 // keeps one user (or address) from burning through the spotify and claude quotas
-const expensive = (req: Request) => req.query.refresh === "1" || ["/vibe", "/explain", "/blend/compare"].includes(req.path);
+const expensive = (req: Request) => req.query.refresh === "1" || ["/vibe", "/explain", "/blend/compare"].includes(req.path) || req.path.startsWith("/refine/playlists/");
 app.use("/api", rateLimit(60_000, 240), rateLimit(60_000, 20, expensive));
 
 // per user cache with a ttl, cleared by the admin tools. concurrent requests share one computation
@@ -86,7 +87,7 @@ registerCollector(app);
 registerAdmin(app, { clearCache, cacheSize: () => cache.size, redirectUri: REDIRECT, publicDir });
 app.use(express.static(publicDir));
 // app pages are routed in the browser (public/app/main.js), they all get the same shell
-app.get(["/connect", "/feed", "/stats", "/discover", "/concerts", "/blend", "/import"], (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
+app.get(["/connect", "/feed", "/stats", "/discover", "/playlists", "/concerts", "/blend", "/import"], (_req, res) => res.sendFile(path.join(publicDir, "index.html")));
 // public share pages, see src/share.ts
 app.get("/s/:token", (_req, res) => res.sendFile(path.join(publicDir, "share.html")));
 app.get("/api/shared/:token", (req, res) => {
@@ -236,7 +237,7 @@ app.post("/api/feedback", wrap("vote", async (req) => {
 app.post("/api/playlist", wrap("playlist", async (req) => {
   if (!hasPlaylistScope()) throw bad("Sign out and connect again to grant playlist permission.");
   const uris = req.body?.uris;
-  if (!Array.isArray(uris) || !uris.length || uris.length > 200 || !uris.every((u) => typeof u === "string" && TRACK_URI.test(u))) throw bad("no tracks");
+  if (!Array.isArray(uris) || !uris.length || uris.length > MAX_TRACKS || !uris.every((u) => typeof u === "string" && TRACK_URI.test(u))) throw bad("no tracks");
   return spotify.createPlaylist(text(req.body.name, 100) || "Resonance picks", "Created by Resonance", uris);
 }));
 
@@ -255,6 +256,72 @@ app.post("/api/playlist/add", wrap("playlist_add", async (req) => {
   if (!playlistId || !SPOTIFY_ID.test(playlistId) || !uri || !TRACK_URI.test(uri)) throw bad("bad request");
   await spotify.addToPlaylist(playlistId, uri);
   return { ok: true };
+}));
+
+// refine tab: the playlists the app can read and change, an analysis of one, and the edits
+const playlistList = () => cached("refine:list", 2 * 60_000, () => spotify.allPlaylists());
+const needEdit = () => {
+  if (!hasPlaylistEdit()) throw bad("Spotify needs one more permission to edit playlists. Sign out and connect again.");
+};
+// spotify only lets an app open playlists the user owns or collaborates on
+async function editable(id: string) {
+  if (!SPOTIFY_ID.test(id)) throw bad("bad playlist");
+  const p = (await playlistList()).find((x) => x.id === id && (x.owned || x.collaborative));
+  if (!p) throw bad("That isn't one of your playlists, or you can't edit it.");
+  return p;
+}
+const uriList = (v: unknown, max: number): string[] => {
+  if (v === undefined) return [];
+  if (!Array.isArray(v) || v.length > max || !v.every((u) => typeof u === "string" && TRACK_URI.test(u))) throw bad("bad track list");
+  return [...new Set(v as string[])];
+};
+// a 403 or 404 from spotify here means the playlist can't be changed, not that we broke
+const forbidden = async <T>(fn: () => Promise<T>) => {
+  try {
+    return await fn();
+  } catch (e) {
+    if (/Spotify (403|404)/.test((e as Error).message)) throw bad("Spotify won't let this app change that playlist.");
+    throw e;
+  }
+};
+
+app.get("/api/refine/playlists", wrap("view_refine", async () => {
+  const all = await playlistList();
+  const mine = all.filter((p) => p.owned || p.collaborative);
+  return { canEdit: hasPlaylistEdit(), playlists: mine, hidden: all.length - mine.length };
+}));
+
+app.get("/api/refine/playlists/:id", wrap("refine_playlist", async (req) => {
+  const p = await editable(String(req.params.id));
+  const key = `refine:${p.id}`;
+  if (req.query.refresh === "1") invalidate(key);
+  return forbidden(() => cached(key, 5 * 60_000, async () => analyzePlaylist(p, await taste())));
+}));
+
+// remove = take these songs out entirely, dedupe = keep one copy of these
+app.post("/api/refine/playlists/:id/clean", wrap("refine_apply", async (req) => {
+  needEdit();
+  const p = await editable(String(req.params.id));
+  const remove = uriList(req.body?.remove, 200);
+  const dedupe = uriList(req.body?.dedupe, 100);
+  if (!remove.length && !dedupe.length) throw bad("Nothing selected.");
+  return forbidden(async () => {
+    const { tracks, truncated } = await spotify.playlistItems(p.id, MAX_TRACKS);
+    if (dedupe.length && truncated) throw bad(`This playlist is longer than ${MAX_TRACKS} songs, so duplicate copies can't be merged safely. Removing songs still works.`);
+    const result = await applyClean(p.id, tracks, remove, dedupe);
+    invalidate("refine:");
+    return result;
+  });
+}));
+
+app.post("/api/refine/playlists/:id/add", wrap("refine_add", async (req) => {
+  needEdit();
+  const p = await editable(String(req.params.id));
+  const uris = uriList(req.body?.uris, 200);
+  if (!uris.length) throw bad("Nothing selected.");
+  await forbidden(() => spotify.addTracksToPlaylist(p.id, uris));
+  invalidate("refine:");
+  return { added: uris.length };
 }));
 
 app.get("/api/blend/export", wrap("view_blend", async () => {

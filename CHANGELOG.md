@@ -20,6 +20,8 @@
 - Docker health check on a new `/healthz` endpoint. The daily taste snapshot is dated in UTC.
 
 ### Added
+- Playlists tab: pick one of your playlists to clear out duplicates and songs that don't fit its genres, and add songs that do. Exact duplicates are merged into one copy that stays in place, removals can be undone right after, and a cleaned copy can be saved without touching the original. Needs one new Spotify permission (`playlist-modify-public`), so people who signed in earlier are asked to allow it once.
+- Tests for the playlist analysis, the merge planner (including a randomized check), the Spotify playlist calls and the suggestions.
 - Tests for the cache, the Spotify request pool, time zones and streaks, taste-code parsing, the sync job and complete user deletion (50 tests in all).
 
 ## 1.1.0
