@@ -2,7 +2,26 @@
 
 ## Unreleased
 
+### Redesign
+- New look across the app, share page and admin panel, following Apple's interface conventions with the same violet/pink colors: system font, frosted header and menus, grouped inset cards, segmented controls, tinted buttons, and a line-icon set (`public/icons.svg`) in place of emoji and text arrows.
+- Track buttons (preview, add to playlist, open, 👍/👎, why) are compact icon buttons that fit on one line. Release, event and playlist rows are cleaner, and concerts show a calendar date.
+- Light, dark or automatic theme, chosen from the new account menu (avatar, top right) and remembered per browser. Sign out, delete my data and import moved into that menu.
+- Messages are toasts pinned under the header (bottom on phones), so "Added to playlist" is seen wherever you've scrolled. Successes go away by themselves, errors stay until closed.
+- Dialogs are real `<dialog>`s (focus kept inside, Esc closes). On phones they open as bottom sheets you can drag down to close; the sheet follows your finger, resists upward pulls, and a quick flick closes it.
+- Phones: the tabs scroll sideways instead of spilling out, mode switches stay on one line, stat tiles are two across, and tiles are two across.
+- Respects reduced motion, reduced transparency and increased contrast settings. Visible keyboard focus everywhere, a skip-to-content link, labels on icon-only buttons.
+
+### Added
+- Plays by month chart on Stats (the server already sent this data; it wasn't shown). Hour and weekday charts label every bar in place and name your busiest hour and day.
+- Keyboard shortcuts: number keys switch tabs, `j`/`k` move through the feed, space plays the current card, `/` jumps to the vibe box, `?` lists them all.
+- Feed position dots, so you can tell where you are in the reel.
+- Import: drag the history files onto the page, with a progress bar.
+- 👎 now confirms what it did ("less like X from now on").
+- The share image was redrawn to match the new persona card.
+
 ### Fixed
+- Signed-out visitors saw the app tabs, bell and avatar, and the admin login showed the admin tabs and Sign out. CSS `display` rules were overriding the `hidden` attribute.
+- The streak test failed between midnight and 06:00 UTC because it assumed "30 hours ago" was yesterday.
 - Hour-of-day and weekday charts, the "Right now" mode and the listening streak used the server's clock (UTC in Docker), so they were shifted for everyone else. The browser now sends its time zone offset and these use the user's own clock.
 - `docker stop` waited 10 seconds and force-killed the app, because node as PID 1 ignores SIGTERM. The app now closes the server and database and exits straight away (Ctrl+C too).
 - "Delete my data" and the admin's delete left the user's API-call log and release-check marker behind. Both are removed now.

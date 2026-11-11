@@ -1,4 +1,4 @@
-import { $, $$, banner, bar, countUp, empty, h, hist, make, reveal, skeleton } from "/lib/dom.js";
+import { $, $$, banner, bar, countUp, empty, h, hist, label, make, reveal, skeleton } from "/lib/dom.js";
 import { api, app, handleErr, post } from "/app/shared.js";
 
 const RANGES = ["short", "medium", "long"];
@@ -14,9 +14,32 @@ function rankRow(i, img, title, sub, artist = false) {
   });
 }
 
-const histogram = (arr, labels) => arr
-  ? [hist(arr, arr.map((v) => `${v} plays`)), h("div", { class: "histlabels" }, labels.map((l) => h("span", {}, l)))]
-  : empty("Collecting…");
+// labels has one entry per bar, blanks for bars without one, so each label sits under its own bar
+function histogram(arr, labels, names) {
+  if (!arr) return empty("Collecting…");
+  const chart = hist(arr, arr.map((v, i) => `${names[i]}: ${v.toLocaleString()} plays`));
+  const top = arr.indexOf(Math.max(...arr));
+  chart.children[top]?.classList.add("peak");
+  return [chart, h("div", { class: "histlabels" }, labels.map((l) => h("span", {}, l)))];
+}
+const HOURS = Array.from({ length: 24 }, (_, i) => `${i % 12 || 12}${i < 12 ? "am" : "pm"}`);
+const HOUR_LABELS = HOURS.map((x, i) => (i % 6 === 0 ? x.replace("m", "") : ""));
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const peakOf = (arr, names) => (arr?.some(Boolean) ? `· busiest ${names[arr.indexOf(Math.max(...arr))]}` : "");
+
+// plays per month, last 12 months that have any
+function monthsChart(monthly) {
+  const max = Math.max(...monthly.map((m) => m.plays), 1);
+  const peak = monthly.findIndex((m) => m.plays === max);
+  return h("div", { class: "months" }, monthly.map((m, i) => {
+    const d = new Date(`${m.month}-15T12:00:00`);
+    const name = d.toLocaleDateString(undefined, { month: "short" });
+    return h("div", { class: i === peak ? "peak" : null, title: `${d.toLocaleDateString(undefined, { month: "long", year: "numeric" })}: ${m.plays.toLocaleString()} plays` },
+      h("b", {}, m.plays >= 1000 ? `${(m.plays / 1000).toFixed(1)}k` : String(m.plays)),
+      h("i", { style: `height:${Math.max(2, (m.plays / max) * 100)}%;animation-delay:${i * 30}ms` }),
+      h("small", {}, monthly.length > 8 ? name.charAt(0) : name));
+  }));
+}
 
 function driftChart(drift) {
   if (drift.length < 2) return empty("Resonance saves a taste snapshot each day. Check back in a few days to see how your taste changes over time.", { style: "padding:20px 0" });
@@ -26,8 +49,8 @@ function driftChart(drift) {
   const rows = drift.map((d) => {
     const map = new Map(d.genres);
     const segs = top.map((g, i) => h("div", { style: `width:${map.get(g) || 0}%;background:${COLORS[i]}`, title: `${g} ${map.get(g) || 0}%` }));
-    return h("div", { style: "display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted)" },
-      h("span", { style: "width:72px" }, d.day.slice(5)), h("div", { class: "stack", style: "flex:1;margin:2px 0" }, segs));
+    const day = new Date(`${d.day}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    return h("div", { class: "drift-row" }, h("span", {}, day), h("div", { class: "stack" }, segs));
   });
   return [...rows, h("div", { class: "legend" }, top.map((g, i) => h("span", {}, h("i", { style: `background:${COLORS[i]}` }), g)))];
 }
@@ -35,13 +58,13 @@ function driftChart(drift) {
 async function artistDive(row) {
   const open = row.nextElementSibling;
   if (open?.classList.contains("dive")) return open.remove();
-  const box = h("div", { class: "dive", style: "padding:8px 0 14px 34px;color:var(--muted);font-size:13px" }, "Loading…");
+  const box = h("div", { class: "dive" }, "Loading…");
   row.after(box);
   try {
     const a = await api(`/api/artist?name=${encodeURIComponent(row.dataset.artist)}`);
     if (!a.name) return (box.textContent = "No Last.fm info for this artist.");
     box.replaceWith(make("t-dive", {
-      tags: a.tags.flatMap((t) => [h("span", { class: "chip" }, t), " "]),
+      tags: a.tags.map((t) => h("span", { class: "chip" }, t)),
       listeners: `${a.listeners.toLocaleString()} Last.fm listeners`,
       bio: a.bio ? a.bio.slice(0, 400) + (a.bio.length > 400 ? "…" : "") : null,
       similar: a.similar.length ? `Similar: ${a.similar.join(", ")}` : null,
@@ -50,24 +73,48 @@ async function artistDive(row) {
   } catch (e) { box.textContent = e.message; }
 }
 
+// a 1080x1350 image of your persona, top artists and genres, drawn to match the persona card on the page
 function shareCard(s) {
-  const c = document.createElement("canvas");
-  c.width = 1080; c.height = 1350;
+  const W = 1080, H = 1350, P = 88;
+  const c = Object.assign(document.createElement("canvas"), { width: W, height: H });
   const x = c.getContext("2d");
-  const g = x.createLinearGradient(0, 0, 1080, 1350);
-  g.addColorStop(0, "#2a1b6e"); g.addColorStop(1, "#8a1f4f");
-  x.fillStyle = g; x.fillRect(0, 0, 1080, 1350);
-  x.fillStyle = "#fff"; x.font = "bold 54px -apple-system, sans-serif"; x.fillText("◉ Resonance", 80, 120);
-  x.font = "36px -apple-system, sans-serif"; x.globalAlpha = .75; x.fillText(`${app.me.name}'s taste`, 80, 175); x.globalAlpha = 1;
-  x.font = "bold 84px -apple-system, sans-serif"; x.fillText(s.persona.name, 80, 320);
-  const list = (title, items, y) => {
-    x.font = "bold 40px -apple-system, sans-serif"; x.fillStyle = "#ffd1e1"; x.fillText(title, 80, y);
-    x.fillStyle = "#fff"; x.font = "38px -apple-system, sans-serif";
-    items.forEach((t, i) => x.fillText(`${i + 1}  ${t.length > 28 ? t.slice(0, 27) + "…" : t}`, 80, y + 66 + i * 58));
+  const font = (w, size) => `${w} ${size}px -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif`;
+  const glow = (cx, cy, r, color) => {
+    const g = x.createRadialGradient(cx, cy, 0, cx, cy, r);
+    g.addColorStop(0, color); g.addColorStop(1, "rgba(0,0,0,0)");
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
   };
-  list("Top artists", s.topArtists.slice(0, 5).map((a) => a.name), 460);
-  list("Top genres", s.genres.slice(0, 5).map((a) => `${a.name} · ${a.pct}%`), 860);
-  x.font = "32px -apple-system, sans-serif"; x.globalAlpha = .7; x.fillText(`Diversity ${s.diversity}/100`, 80, 1270);
+  x.fillStyle = "#0b0816"; x.fillRect(0, 0, W, H);
+  glow(0, 0, 900, "rgba(139,108,255,.75)");
+  glow(W, H, 900, "rgba(224,85,214,.6)");
+  const fit = (t, max) => { let out = t; while (x.measureText(out).width > max && out.length > 1) out = out.slice(0, -2) + "…"; return out; };
+
+  x.fillStyle = "#fff";
+  x.font = font(600, 34); x.fillText("resonance", P, P + 20);
+  x.globalAlpha = .7; x.font = font(600, 26); x.fillText(`${app.me.name.toUpperCase()}'S LISTENING PERSONALITY`, P, 280); x.globalAlpha = 1;
+  x.font = font(700, 104); x.fillText(fit(s.persona.name, W - P * 2), P, 390);
+  x.globalAlpha = .8; x.font = font(400, 34); x.fillText(fit(s.persona.blurb, W - P * 2), P, 450); x.globalAlpha = 1;
+
+  // two frosted panels
+  const panel = (y, h) => { x.fillStyle = "rgba(255,255,255,.1)"; x.beginPath(); x.roundRect(P - 28, y, W - (P - 28) * 2, h, 36); x.fill(); };
+  panel(530, 400);
+  x.fillStyle = "#fff"; x.globalAlpha = .65; x.font = font(600, 24); x.fillText("TOP ARTISTS", P, 590); x.globalAlpha = 1;
+  s.topArtists.slice(0, 5).forEach((a, i) => {
+    x.globalAlpha = .5; x.font = font(600, 36); x.fillText(String(i + 1), P, 655 + i * 62); x.globalAlpha = 1;
+    x.font = font(600, 40); x.fillText(fit(a.name, W - P * 2 - 70), P + 60, 655 + i * 62);
+  });
+  panel(960, 300);
+  x.globalAlpha = .65; x.font = font(600, 24); x.fillText("TOP GENRES", P, 1020); x.globalAlpha = 1;
+  const top = s.genres.slice(0, 4), max = top[0]?.pct || 1;
+  top.forEach((g, i) => {
+    const y = 1065 + i * 52;
+    x.font = font(500, 32); x.fillText(fit(g.name, 340), P, y + 10);
+    x.fillStyle = "rgba(255,255,255,.18)"; x.beginPath(); x.roundRect(P + 380, y - 8, 440, 14, 7); x.fill();
+    x.fillStyle = "#fff"; x.beginPath(); x.roundRect(P + 380, y - 8, Math.max(14, 440 * (g.pct / max)), 14, 7); x.fill();
+    x.globalAlpha = .7; x.font = font(500, 26); x.fillText(`${g.pct}%`, P + 840, y + 8); x.globalAlpha = 1;
+  });
+  x.globalAlpha = .6; x.font = font(500, 26); x.fillText(`Genre diversity ${s.diversity}/100`, P, H - 50); x.globalAlpha = 1;
+
   const a = document.createElement("a");
   a.download = "resonance-card.png";
   a.href = c.toDataURL("image/png");
@@ -78,10 +125,11 @@ function shareCard(s) {
 function shareLink(root) {
   const modal = $("#share-modal", root), url = $("#share-url", root);
   const show = (r) => {
-    if (!r) return (modal.hidden = true);
+    if (!r) return modal.close();
     url.value = `${location.origin}/s/${r.token}`;
     $("#share-local", root).hidden = !["127.0.0.1", "localhost", "[::1]"].includes(location.hostname);
-    modal.hidden = false;
+    if (!modal.open) modal.showModal();
+    url.select();
   };
   const run = (btn, fn) => async () => {
     btn.disabled = true;
@@ -91,16 +139,17 @@ function shareLink(root) {
   $("#share-new", root).onclick = run($("#share-new", root), async () => show(await post("/api/share", {})));
   $("#share-off", root).onclick = run($("#share-off", root), async () => {
     await api("/api/share", { method: "DELETE" });
-    modal.hidden = true;
+    modal.close();
     banner("Share link turned off.", true);
   });
-  $("#share-copy", root).onclick = async (e) => {
-    await navigator.clipboard.writeText(url.value);
-    e.target.textContent = "Copied ✓";
-    setTimeout(() => (e.target.textContent = "Copy"), 1500);
+  const copy = $("#share-copy", root);
+  copy.onclick = async () => {
+    try { await navigator.clipboard.writeText(url.value); } catch { url.select(); return; }
+    label(copy, "check", "Copied");
+    setTimeout(() => label(copy, "copy", "Copy"), 1500);
   };
-  $("#share-close", root).onclick = () => (modal.hidden = true);
-  modal.addEventListener("click", (e) => e.target === modal && (modal.hidden = true));
+  $("#share-close", root).onclick = () => modal.close();
+  modal.addEventListener("click", (e) => e.target === modal && modal.close());
 }
 
 // ?range= picks the time range
@@ -131,8 +180,11 @@ export function mount(root, { query, setQuery }) {
         "no-lifetime": L ? null : {},
         ...(L && {
           plays: count(L.plays), "hours-total": count(Math.round(L.minutes / 60)), "days-active": count(L.activeDays),
-          hours: histogram(L.hours, ["12a", "6a", "12p", "6p", "11p"]),
-          days: histogram(L.days, ["S", "M", "T", "W", "T", "F", "S"]),
+          hours: histogram(L.hours, HOUR_LABELS, HOURS),
+          days: histogram(L.days, DAYS.map((d) => d.slice(0, 3)), DAYS),
+          "peak-hour": peakOf(L.hours, HOURS), "peak-day": peakOf(L.days, DAYS),
+          "months-box": L.monthly?.length > 1 ? {} : null,
+          months: L.monthly?.length > 1 ? monthsChart(L.monthly) : null,
           played: L.topArtists.slice(0, 8).map((a, i) => rankRow(i, "", a.name, a.plays + " plays")),
         }),
       });
@@ -142,7 +194,7 @@ export function mount(root, { query, setQuery }) {
       if (app.status.features.ai) api("/api/summary").then((r) => {
         const box = $(".ai-sum", el);
         if (!r.text || !box) return;
-        box.textContent = `✨ ${r.text}`;
+        box.lastElementChild.textContent = r.text;
         box.hidden = false;
       }).catch(() => {});
     } catch (e) { handleErr(el, e); }

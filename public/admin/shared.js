@@ -1,5 +1,7 @@
 // things every admin page uses
-import { banner as showBanner, bar, empty, h, hist, make } from "/lib/dom.js";
+import { bar, empty, h, hist, make } from "/lib/dom.js";
+// success messages fade out on their own, see banner() in lib/dom.js
+export { banner } from "/lib/dom.js";
 
 // signed in state from /admin/api/state, filled in by main.js. go() is the router's navigate
 export const admin = { setup: false, signedIn: false, go: null };
@@ -12,12 +14,6 @@ export async function api(path, opts) {
   return data;
 }
 export const post = (p, body = {}) => api(p, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-
-// success messages fade out on their own
-export function banner(content, ok = false) {
-  showBanner(content, ok);
-  if (content && ok) setTimeout(() => { const el = document.getElementById("banner"); if (el.classList.contains("ok")) el.hidden = true; }, 5000);
-}
 
 // a 401 sends you back to sign in, anything else shows in the page
 export function fail(el, e) {

@@ -1,4 +1,4 @@
-import { $, $$, banner, countUp, empty, h, make, reveal, skeleton } from "/lib/dom.js";
+import { $, $$, banner, countUp, empty, h, icon, label, make, reveal, skeleton } from "/lib/dom.js";
 import { actions, api, cover, handleErr, post, savePlaylist } from "/app/shared.js";
 
 const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -50,7 +50,7 @@ export function mount(root, { query }) {
     } catch (e) {
       if (!alive) return;
       if (e.code === 401) return handleErr(out, e);
-      out.replaceChildren(h("a", { class: "ghost", href: "/playlists" }, "← Playlists"), empty(e.message));
+      out.replaceChildren(h("a", { class: "ghost", href: "/playlists" }, icon("back"), "Playlists"), empty(e.message));
     }
   }
 
@@ -200,7 +200,7 @@ export function mount(root, { query }) {
       try {
         await post(`/api/refine/playlists/${encodeURIComponent(id)}/add`, { uris });
         uris.forEach((u) => added.add(u));
-        buttons.forEach((b) => (b.textContent = "Added ✓"));
+        buttons.forEach((b) => label(b, "check", "Added"));
       } catch (err) {
         banner(err.message);
         buttons.forEach((b) => (b.disabled = false));

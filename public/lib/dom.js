@@ -56,6 +56,30 @@ export function fill(el, slots) {
   return el;
 }
 
+// an icon from /icons.svg. built with createElementNS, like everything else no html is parsed
+const SVG = "http://www.w3.org/2000/svg";
+export function icon(name, cls = "ic") {
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("class", cls);
+  svg.setAttribute("aria-hidden", "true");
+  const use = document.createElementNS(SVG, "use");
+  use.setAttribute("href", `/icons.svg#${name}`);
+  svg.append(use);
+  return svg;
+}
+// icon + text in one go, for buttons whose label changes
+export const label = (el, name, text) => el.replaceChildren(...(name ? [icon(name)] : []), ...(text ? [h("span", {}, text)] : []));
+
+// light / dark / system, see /theme.js
+export const theme = {
+  get: () => store.get("theme", "system"),
+  set(t) {
+    store.set("theme", t);
+    if (t === "system") delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = t;
+  },
+};
+
 export const empty = (text, attrs = {}) => h("div", { class: "empty", ...attrs }, text);
 export const skeleton = (el, tiles) => el.replaceChildren(h("div", { class: `sk${tiles ? " tiles" : ""}` }, Array.from({ length: tiles ? 8 : 6 }, () => h("i"))));
 export const reveal = (el) => { el.classList.add("reveal"); [...el.children].forEach((c, i) => c.style.setProperty("--i", i)); };
@@ -82,12 +106,22 @@ export function moveIndicator() {
 }
 window.addEventListener("resize", moveIndicator);
 
-// content is text or nodes, empty hides it
+// a toast pinned under the header, so it's seen wherever you scrolled to. content is text or nodes, empty hides it.
+// success messages go away on their own (not while the pointer is on them), errors stay until closed
+let bannerTimer = 0;
 export function banner(content, ok = false) {
   const el = $("#banner");
-  el.replaceChildren(...[content ?? []].flat());
+  clearTimeout(bannerTimer);
+  const close = h("button", { class: "x", "aria-label": "Dismiss" }, icon("close"));
+  close.onclick = () => banner(null);
+  el.replaceChildren(icon(ok ? "check" : "close", "ic lead"), h("div", { class: "msg" }, [content ?? []].flat()), close);
   el.hidden = !content;
   el.classList.toggle("ok", ok);
+  el.setAttribute("role", ok ? "status" : "alert");
+  const later = () => { bannerTimer = setTimeout(() => (el.hidden = true), 6000); };
+  el.onmouseenter = () => clearTimeout(bannerTimer);
+  el.onmouseleave = () => ok && later();
+  if (content && ok) later();
 }
 
 // simple bar row and histogram, used by stats and admin

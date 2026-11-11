@@ -8,11 +8,13 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="icon" href="/icon.svg">
   <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
 </head>
 <body>
+  <a class="skip" href="#page">Skip to content</a>
   <header>
-    <div class="brand">resonance</div>
-    <nav id="tabs" hidden>
+    <a class="brand" href="/"><svg class="ic" aria-hidden="true"><use href="/icons.svg#logo"/></svg>resonance</a>
+    <nav id="tabs" aria-label="Main" hidden>
       <a href="/feed">Feed</a>
       <a href="/stats">Stats</a>
       <a href="/discover">Discover</a>
@@ -22,45 +24,72 @@
       <span id="ind"></span>
     </nav>
     <div id="account" hidden>
-      <button id="bell" title="New releases" aria-label="New releases">🔔<span id="bell-n" class="badge" hidden></span></button>
-      <img id="me-img" alt="" hidden><span id="me-name"></span>
-      <button id="logout">sign out</button><button id="delete-me">delete my data</button>
+      <button id="bell" class="icon-btn" title="New releases" aria-label="New releases"><svg class="ic" aria-hidden="true"><use href="/icons.svg#bell"/></svg><span id="bell-n" class="badge" hidden></span></button>
+      <div class="menu-wrap">
+        <button id="me-btn" class="avatar-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="me-menu" title="Account"><img id="me-img" alt="" hidden><span id="me-initial" aria-hidden="true"></span></button>
+        <div id="me-menu" class="menu" role="menu" hidden>
+          <div class="menu-head"><b id="me-name"></b><small>Signed in with Spotify</small></div>
+          <div class="menu-label">Theme</div>
+          <div class="seg theme-seg" id="theme">
+            <button data-theme="system" title="Match your device"><svg class="ic" aria-hidden="true"><use href="/icons.svg#monitor"/></svg>Auto</button>
+            <button data-theme="light"><svg class="ic" aria-hidden="true"><use href="/icons.svg#sun"/></svg>Light</button>
+            <button data-theme="dark"><svg class="ic" aria-hidden="true"><use href="/icons.svg#moon"/></svg>Dark</button>
+          </div>
+          <hr>
+          <a href="/import" role="menuitem"><svg class="ic" aria-hidden="true"><use href="/icons.svg#upload"/></svg>Import listening history</a>
+          <button id="keys-btn" role="menuitem"><svg class="ic" aria-hidden="true"><use href="/icons.svg#keyboard"/></svg>Keyboard shortcuts</button>
+          <hr>
+          <button id="logout" role="menuitem"><svg class="ic" aria-hidden="true"><use href="/icons.svg#logout"/></svg>Sign out</button>
+          <button id="delete-me" role="menuitem" class="danger"><svg class="ic" aria-hidden="true"><use href="/icons.svg#trash"/></svg>Delete my data</button>
+        </div>
+      </div>
     </div>
   </header>
 
+  <div id="banner" class="banner" hidden></div>
   <main>
-    <div id="banner" class="banner" hidden></div>
     <!-- the current page from app/pages/ goes here -->
-    <div id="page"></div>
+    <div id="page" tabindex="-1"></div>
   </main>
 
-  <div id="pl-modal" class="modal" hidden>
-    <div class="panel">
-      <div class="row"><h3 style="margin:0;margin-right:auto">Add to playlist</h3><button class="ghost" id="pl-close">✕</button></div>
-      <div id="pl-list"></div>
-    </div>
-  </div>
+  <dialog id="pl-modal" class="sheet" aria-labelledby="pl-title">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="sheet-head"><h2 id="pl-title">Add to playlist</h2><button class="icon-btn" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="/icons.svg#close"/></svg></button></div>
+    <div id="pl-list"></div>
+  </dialog>
 
-  <div id="nt-modal" class="modal" hidden>
-    <div class="panel">
-      <div class="row"><h3 style="margin:0;margin-right:auto">New releases</h3><button class="ghost" id="nt-close">✕</button></div>
-      <div id="nt-list"></div>
-    </div>
-  </div>
+  <dialog id="nt-modal" class="sheet" aria-labelledby="nt-title">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="sheet-head"><h2 id="nt-title">New releases</h2><button class="icon-btn" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="/icons.svg#close"/></svg></button></div>
+    <div id="nt-list"></div>
+  </dialog>
+
+  <dialog id="keys-modal" class="sheet" aria-labelledby="keys-title">
+    <div class="grab" aria-hidden="true"></div>
+    <div class="sheet-head"><h2 id="keys-title">Keyboard shortcuts</h2><button class="icon-btn" data-close aria-label="Close"><svg class="ic" aria-hidden="true"><use href="/icons.svg#close"/></svg></button></div>
+    <dl class="keys">
+      <dt><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> …</dt><dd>Jump to a tab, in the order they're shown</dd>
+      <dt><kbd>j</kbd> / <kbd>k</kbd></dt><dd>Next / previous card in the feed</dd>
+      <dt><kbd>Space</kbd></dt><dd>Play or stop the preview on the current feed card</dd>
+      <dt><kbd>/</kbd></dt><dd>Describe a vibe on Discover</dd>
+      <dt><kbd>?</kbd></dt><dd>Show this list</dd>
+      <dt><kbd>Esc</kbd></dt><dd>Close a menu or dialog</dd>
+    </dl>
+  </dialog>
 
   <template id="t-note">
-    <a class="note" data-slot="note" target="_blank" rel="noopener"><slot name="cover"></slot><span><slot name="title"></slot><br><small><slot name="body"></slot> · <slot name="when"></slot></small></span></a>
+    <a class="note" data-slot="note" target="_blank" rel="noopener"><slot name="cover"></slot><span><slot name="title"></slot><small><slot name="body"></slot> · <slot name="when"></slot></small></span></a>
   </template>
 
   <!-- templates used by more than one page -->
   <template id="t-actions">
     <div class="actions">
-      <button class="play" data-slot="preview">▶ Preview</button>
-      <button class="play add-btn" data-slot="add">＋ Playlist</button>
-      <a class="open" data-slot="open" target="_blank" rel="noopener">Open ↗</a>
-      <button class="vote" data-vote="1" data-slot="up" title="More like this">👍</button>
-      <button class="vote" data-vote="-1" data-slot="down" title="Less like this">👎</button>
-      <button class="play why-btn" data-slot="why">Why?</button>
+      <button class="play" data-slot="preview" aria-label="Play preview" title="Play preview"><svg class="ic" aria-hidden="true"><use href="/icons.svg#play"/></svg></button>
+      <button class="act add-btn" data-slot="add" aria-label="Add to playlist" title="Add to playlist"><svg class="ic" aria-hidden="true"><use href="/icons.svg#plus"/></svg></button>
+      <a class="act open" data-slot="open" target="_blank" rel="noopener" aria-label="Open in Spotify" title="Open in Spotify"><svg class="ic" aria-hidden="true"><use href="/icons.svg#external"/></svg></a>
+      <button class="act vote" data-vote="1" data-slot="up" aria-label="More like this" title="More like this"><svg class="ic" aria-hidden="true"><use href="/icons.svg#up"/></svg></button>
+      <button class="act vote" data-vote="-1" data-slot="down" aria-label="Less like this" title="Less like this"><svg class="ic" aria-hidden="true"><use href="/icons.svg#down"/></svg></button>
+      <button class="act why-btn" data-slot="why" aria-label="Why was this picked?" title="Why was this picked?"><svg class="ic" aria-hidden="true"><use href="/icons.svg#sparkle"/></svg></button>
     </div>
   </template>
 
@@ -70,13 +99,14 @@
 
   <template id="t-event">
     <div class="item event">
+      <div class="date" data-slot="date"><b data-slot="day"></b><small data-slot="mon"></small></div>
       <div class="meta"><div class="why">Live · <slot name="artist"></slot></div><div class="title" data-slot="name"></div><div class="by" data-slot="where"></div></div>
-      <div class="actions"><a class="open" data-slot="tickets" target="_blank" rel="noopener">Tickets ↗</a></div>
+      <div class="actions"><a class="ghost mini" data-slot="tickets" target="_blank" rel="noopener"><svg class="ic" aria-hidden="true"><use href="/icons.svg#ticket"/></svg>Tickets</a></div>
     </div>
   </template>
 
   <template id="t-pl">
-    <button class="pl"><slot name="cover"></slot><span><slot name="name"></slot><br><small style="color:var(--muted)"><slot name="tracks"></slot> tracks</small></span></button>
+    <button class="pl"><slot name="cover"></slot><span><slot name="name"></slot><small><slot name="tracks"></slot> songs</small></span></button>
   </template>
 
   <template id="t-bar">

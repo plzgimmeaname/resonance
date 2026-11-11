@@ -48,6 +48,14 @@ export function mount(root, { query, setQuery }) {
     go.disabled = false;
   };
   vibe.addEventListener("keydown", (e) => e.key === "Enter" && go.click());
+  // "/" jumps to the vibe box
+  const onKey = (e) => {
+    if (e.key !== "/" || $("#vibe-box", root).hidden || e.target.closest("input, textarea") || document.querySelector("dialog[open]")) return;
+    e.preventDefault();
+    vibe.focus();
+  };
+  document.addEventListener("keydown", onKey);
 
   load();
+  return () => document.removeEventListener("keydown", onKey);
 }

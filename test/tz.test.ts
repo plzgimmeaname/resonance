@@ -38,8 +38,9 @@ test("the listening streak counts consecutive local days ending today or yesterd
   // three days in a row, then a gap, then an older play
   [0, 24, 48, 120].forEach((h, i) => ins.run("streak", hoursAgo(h), `s${i}`, "Song", "Band"));
   assert.equal(runAs("streak", () => lifetime()!.streak, 0), 3);
-  // nothing today but yesterday still counts
-  [0, 24, 48].forEach((_, i) => ins.run("streak2", hoursAgo(30 + i * 24), `r${i}`, "Song", "Band"));
+  // nothing today but yesterday still counts. noon of the days before today, so it holds at any time of day
+  const startOfToday = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime();
+  [0, 24, 48].forEach((h, i) => ins.run("streak2", new Date(startOfToday - (12 + h) * 3600_000).toISOString(), `r${i}`, "Song", "Band"));
   assert.equal(runAs("streak2", () => lifetime()!.streak, 0), 3);
   // a gap of two full days breaks it
   ins.run("streak3", hoursAgo(80), "g0", "Song", "Band");

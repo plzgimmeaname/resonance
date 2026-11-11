@@ -1,5 +1,5 @@
 // things every page of the app uses: api calls, track cards, previews, playlists, votes
-import { $, banner, empty, h, make, store } from "/lib/dom.js";
+import { $, banner, empty, h, icon, make, store } from "/lib/dom.js";
 
 // server status and the signed in user, filled in by main.js. go() is the router's navigate
 export const app = { status: null, me: null, go: null };
@@ -60,13 +60,28 @@ export const trackTile = ({ track: t, reason, genre = "", artist = "" }, withVot
   actions: actions(t, reason, genre, artist, withVotes),
 });
 
-export const eventItem = (e) => make("t-event", {
-  artist: e.artist, name: e.name, where: `${e.date} · ${e.venue}, ${e.city}`, tickets: { href: e.url },
-});
+// event dates are yyyy-mm-dd, shown as a calendar chip. parsed at noon so the time zone can't shift the day
+export const eventItem = (e) => {
+  const d = new Date(`${e.date}T12:00:00`);
+  const ok = !Number.isNaN(d.getTime());
+  return make("t-event", {
+    date: ok ? { title: d.toLocaleDateString(undefined, { weekday: "long", year: "numeric", month: "long", day: "numeric" }) } : null,
+    day: ok ? String(d.getDate()) : null, mon: ok ? d.toLocaleDateString(undefined, { month: "short" }) : null,
+    artist: e.artist, name: e.name, where: `${ok ? d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" }) : e.date} · ${e.venue}, ${e.city}`, tickets: { href: e.url },
+  });
+};
 
 
 // song previews, one at a time
 const audio = new Audio();
+const PREVIEW = { play: ["play", "Play preview"], stop: ["stop", "Stop preview"], wait: [null, "Finding a preview…"], none: ["play", "No preview available"] };
+function previewState(btn, s) {
+  const [name, text] = PREVIEW[s];
+  btn.replaceChildren(name ? icon(name) : h("span", { class: "spin" }));
+  btn.setAttribute("aria-label", text);
+  btn.title = text;
+  btn.classList.toggle("wait", s === "wait");
+}
 let playingBtn = null;
 // want = the button that should be playing, so a slow lookup doesn't start after you scrolled away
 let want = null;
@@ -77,7 +92,7 @@ export function stopPreview(cancel = false) {
   if (cancel) want = null;
   audio.pause();
   if (playingBtn) {
-    playingBtn.textContent = "▶ Preview";
+    previewState(playingBtn, "play");
     playingBtn.closest(".tile, .item")?.classList.remove("playing");
   }
   playingBtn = null;
@@ -88,16 +103,16 @@ export async function togglePreview(btn, forcePlay = false) {
   want = btn;
   if (wasMe && !forcePlay) return (want = null);
   if (!btn.dataset.src) {
-    btn.textContent = "…";
+    previewState(btn, "wait");
     try {
       const { url } = await api(`/api/preview?name=${encodeURIComponent(btn.dataset.name)}&artist=${encodeURIComponent(btn.dataset.artist)}`);
-      if (!url) { btn.textContent = "No preview"; btn.disabled = true; return; }
+      if (!url) { previewState(btn, "none"); btn.disabled = true; return; }
       btn.dataset.src = url;
-    } catch { btn.textContent = "▶ Preview"; return; }
-    if (want !== btn) return (btn.textContent = "▶ Preview");
+    } catch { previewState(btn, "play"); return; }
+    if (want !== btn) return previewState(btn, "play");
   }
   audio.src = btn.dataset.src;
-  btn.textContent = "■ Stop";
+  previewState(btn, "stop");
   btn.closest(".tile, .item")?.classList.add("playing");
   playingBtn = btn;
   // browsers can block autoplay until the page has been clicked, fall back to a normal button
@@ -113,13 +128,10 @@ export async function togglePreview(btn, forcePlay = false) {
 
 // add a song to one of the user's existing playlists
 let myPlaylists = null;
-const closePlaylists = () => { $("#pl-modal").hidden = true; };
-$("#pl-close").addEventListener("click", closePlaylists);
-$("#pl-modal").addEventListener("click", (e) => e.target.id === "pl-modal" && closePlaylists());
-document.addEventListener("keydown", (e) => e.key === "Escape" && closePlaylists());
+const closePlaylists = () => $("#pl-modal").close();
 async function openPlaylists(uri) {
   const list = $("#pl-list");
-  $("#pl-modal").hidden = false;
+  $("#pl-modal").showModal();
   list.replaceChildren(empty("Loading…"));
   try {
     myPlaylists ??= await api("/api/playlists");
@@ -144,7 +156,7 @@ export async function savePlaylist(name, uris, btn) {
   btn.disabled = true;
   try {
     const r = await post("/api/playlist", { name, uris });
-    banner(["Playlist created: ", h("a", { href: r.url, target: "_blank", rel: "noopener" }, "open in Spotify ↗")], true);
+    banner(["Playlist created. ", h("a", { href: r.url, target: "_blank", rel: "noopener" }, "Open in Spotify")], true);
   } catch (e) { banner(e.message); }
   btn.disabled = false;
 }
@@ -156,18 +168,24 @@ async function sendVote(btn) {
   try {
     await post("/api/feedback", { vote, trackKey: trackKey(track), genre, artist: vote < 0 ? track.artists[0] : artist });
     const card = btn.closest(".tile, .item");
-    if (vote < 0) { card.style.opacity = ".35"; card.style.pointerEvents = "none"; }
-    else btn.classList.add("on");
+    if (vote < 0) {
+      card.classList.add("hidden-rec");
+      banner(`Got it, less like ${track.artists[0]} from now on.`, true);
+    } else {
+      btn.classList.add("on");
+      btn.disabled = true;
+    }
   } catch (e) { banner(e.message); }
 }
 
 async function explainRec(btn) {
   const { track, reason } = JSON.parse(btn.closest(".actions").dataset.voteInfo);
-  const box = h("div", { class: "ai" }, "Thinking…");
+  const box = h("div", { class: "ai" }, icon("sparkle"), h("span", {}, "Thinking…"));
   btn.closest(".tile, .meta, .item").appendChild(box);
   btn.remove();
-  try { box.textContent = (await post("/api/explain", { track, reason })).text || "No explanation available."; }
-  catch (e) { box.textContent = e.message; }
+  const say = (text) => box.lastChild.replaceWith(h("span", {}, text));
+  try { say((await post("/api/explain", { track, reason })).text || "No explanation available."); }
+  catch (e) { say(e.message); }
 }
 
 // track buttons work the same on every page
@@ -175,7 +193,7 @@ document.addEventListener("click", (e) => {
   const t = e.target;
   const add = t.closest?.("button.add-btn");
   if (add) return openPlaylists(add.dataset.uri);
-  const play = t.closest?.("button.play:not(.add-btn):not(.why-btn)");
+  const play = t.closest?.("button.play");
   if (play) return togglePreview(play);
   const vote = t.closest?.("button.vote");
   if (vote) return sendVote(vote);

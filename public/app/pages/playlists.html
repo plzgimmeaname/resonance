@@ -21,16 +21,16 @@
       <slot name="cover"></slot>
       <div class="meta"><div class="why" data-slot="why"></div><div class="title" data-slot="title"></div><div class="by" data-slot="by"></div></div>
       <slot name="actions"></slot>
-      <button class="ghost add-here" data-slot="add">＋ Add here</button>
+      <button class="ghost mini add-here" data-slot="add"><svg class="ic" aria-hidden="true"><use href="/icons.svg#plus"/></svg><span>Add here</span></button>
     </div>
   </template>
 
   <template id="t-refine">
     <div>
       <div class="row">
-        <a class="ghost" href="/playlists">← Playlists</a>
+        <a class="ghost" href="/playlists"><svg class="ic" aria-hidden="true"><use href="/icons.svg#back"/></svg>Playlists</a>
         <h1 data-slot="name"></h1>
-        <button class="ghost" id="rf-refresh">↻ Re-analyze</button>
+        <button class="ghost" id="rf-refresh"><svg class="ic" aria-hidden="true"><use href="/icons.svg#refresh"/></svg>Re-analyze</button>
       </div>
       <div data-slot="notes"></div>
       <div class="statgrid" data-slot="stats"></div>
@@ -39,7 +39,7 @@
       <div class="row rf-sect" data-slot="flag-head"><h3 style="margin:0;margin-right:auto">Needs attention</h3><button class="ghost mini" id="rf-none">Clear selection</button></div>
       <div class="feed" data-slot="flagged"></div>
 
-      <div class="row rf-sect"><h3 style="margin:0;margin-right:auto">Songs that would fit</h3><button class="ghost mini" id="rf-add-all">＋ Add all</button></div>
+      <div class="row rf-sect"><h3 style="margin:0;margin-right:auto">Songs that would fit</h3><button class="ghost mini" id="rf-add-all"><svg class="ic" aria-hidden="true"><use href="/icons.svg#plus"/></svg><span>Add all</span></button></div>
       <div class="feed" data-slot="sugs"></div>
 
       <div class="row rf-sect"><h3 style="margin:0;margin-right:auto" data-slot="all-title"></h3></div>

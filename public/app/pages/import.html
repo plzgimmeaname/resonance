@@ -15,8 +15,9 @@
       <h3>2. Pick the files</h3>
       <p style="color:var(--muted);font-size:13px;margin-top:0">Choose every <code>Streaming_History_Audio_*.json</code> (extended) or <code>StreamingHistory_music_*.json</code> (account data) file. Other files are ignored. Plays you already have here are skipped, so importing twice is safe.</p>
       <input type="file" id="files" accept=".json,application/json" multiple hidden>
-      <button class="btn" id="pick">Choose files</button>
-      <div id="progress" class="import-progress" hidden></div>
+      <div class="dropzone" id="drop"><svg class="ic" aria-hidden="true"><use href="/icons.svg#upload"/></svg><span>Drop the files here, or</span><button class="btn" id="pick">Choose files</button></div>
+      <div class="progress" id="bar" hidden><i></i></div>
+      <div id="progress" class="import-progress" role="status" hidden></div>
     </div>
   </div>
 </section>

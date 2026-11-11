@@ -7,11 +7,11 @@
       <button data-mode="adventurous">Adventurous</button>
       <button data-mode="deepcuts">Deep cuts</button>
     </div>
-    <button class="ghost" id="refresh">↻ Shuffle</button>
-    <button class="ghost" id="save-pl">＋ Save as playlist</button>
+    <button class="ghost" id="refresh"><svg class="ic" aria-hidden="true"><use href="/icons.svg#shuffle"/></svg>Shuffle</button>
+    <button class="ghost" id="save-pl"><svg class="ic" aria-hidden="true"><use href="/icons.svg#plus"/></svg>Save as playlist</button>
   </div>
   <div id="vibe-box" class="row" hidden>
-    <input id="vibe" type="text" maxlength="200" placeholder="✨ describe a vibe, e.g. rainy sunday coding" style="flex:1;min-width:200px">
+    <label class="field"><svg class="ic" aria-hidden="true"><use href="/icons.svg#sparkle"/></svg><input id="vibe" type="text" maxlength="200" placeholder="Describe a vibe, like rainy sunday coding" aria-label="Describe a vibe"></label>
     <button class="btn" id="vibe-go">Make playlist</button>
   </div>
   <div id="recs" class="grid"></div>

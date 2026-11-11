@@ -8,14 +8,15 @@
   <title>Resonance</title>
   <link rel="icon" href="/icon.svg">
   <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
 </head>
 <body>
   <header>
-    <a class="brand" href="/" style="text-decoration:none;color:inherit">resonance</a>
+    <a class="brand" href="/"><svg class="ic" aria-hidden="true"><use href="/icons.svg#logo"/></svg>resonance</a>
   </header>
 
+  <div id="banner" class="banner" hidden></div>
   <main>
-    <div id="banner" class="banner" hidden></div>
     <!-- filled from /api/shared/:token by share.js -->
     <div id="page"></div>
   </main>
@@ -34,7 +35,7 @@
         <div class="panel"><h3>Top artists</h3><slot name="artists"></slot></div>
         <div class="panel"><h3>Top songs</h3><slot name="tracks"></slot></div>
       </div>
-      <div class="panel" style="margin-bottom:24px">
+      <div class="panel card" style="margin-bottom:16px">
         <h3>Top genres <span style="color:var(--muted);font-weight:400;font-size:13px" data-slot="diversity"></span></h3>
         <slot name="genres"></slot>
       </div>

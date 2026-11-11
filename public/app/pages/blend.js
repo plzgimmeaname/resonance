@@ -1,4 +1,4 @@
-import { $, countUp, empty, h, make, reveal, skeleton } from "/lib/dom.js";
+import { $, countUp, empty, h, label, make, reveal, skeleton } from "/lib/dom.js";
 import { api, handleErr, pendingBlend, post, savePlaylist, trackTile } from "/app/shared.js";
 
 // ?code= comes from a friend's share page and compares right away
@@ -6,13 +6,15 @@ export function mount(root, { query, setQuery }) {
   const mine = $("#mycode", root), out = $("#blend-result", root);
   api("/api/blend/export").then((r) => (mine.value = r.code)).catch((e) => handleErr(mine.parentElement, e));
 
-  $("#copycode", root).onclick = async (e) => {
-    await navigator.clipboard.writeText(mine.value);
-    e.target.textContent = "Copied ✓";
-    setTimeout(() => (e.target.textContent = "Copy"), 1500);
+  const copy = $("#copycode", root);
+  copy.onclick = async () => {
+    try { await navigator.clipboard.writeText(mine.value); } catch { mine.select(); return; }
+    label(copy, "check", "Copied");
+    setTimeout(() => label(copy, "copy", "Copy"), 1500);
   };
 
   $("#compare", root).onclick = async () => {
+    if (!$("#theircode", root).value.trim()) return $("#theircode", root).focus();
     skeleton(out, true);
     try {
       const r = await post("/api/blend/compare", { code: $("#theircode", root).value });

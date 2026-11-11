@@ -7,10 +7,11 @@
   <title>Resonance admin</title>
   <link rel="icon" href="/icon.svg">
   <link rel="stylesheet" href="/style.css">
+  <script src="/theme.js"></script>
 </head>
 <body>
   <header>
-    <div class="brand">resonance <span class="tag">admin</span></div>
+    <a class="brand" href="/admin"><svg class="ic" aria-hidden="true"><use href="/icons.svg#logo"/></svg>resonance <span class="tag">admin</span></a>
     <nav id="tabs" hidden>
       <a href="/admin/overview">Overview</a>
       <a href="/admin/users">Users</a>
@@ -19,11 +20,11 @@
       <a href="/admin/tools">Tools</a>
       <span id="ind"></span>
     </nav>
-    <a href="/" class="ghost" style="text-decoration:none;margin-left:auto">← site</a>
+    <a href="/" class="ghost" style="margin-left:auto"><svg class="ic" aria-hidden="true"><use href="/icons.svg#back"/></svg>Site</a>
     <button class="ghost" id="signout" hidden>Sign out</button>
   </header>
+  <div id="banner" class="banner" hidden></div>
   <main>
-    <div id="banner" class="banner" hidden></div>
     <!-- the current page from admin/pages/ goes here -->
     <div id="page"></div>
   </main>
