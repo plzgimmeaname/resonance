@@ -1,5 +1,6 @@
 import { runAs, uid } from "./context.js";
 import { artistGenres, db, pruneOld, upsertArtist } from "./db.js";
+import { fillGenres } from "./genres.js";
 import { buildTaste, snapshotDue, snapshotGenres } from "./engine.js";
 import { checkReleases, pruneNotifications, releasesDue } from "./notify.js";
 import { sendReport } from "./remote.js";
@@ -15,16 +16,12 @@ export async function syncHistory(): Promise<number> {
     const r = ins.run(uid(), t.playedAt!, t.id, t.name, t.artistIds[0] ?? null, t.artists[0], t.album, t.image ?? null, t.durationMs ?? null);
     added += Number(r.changes);
   }
-  // learn genres for unseen artists (no batch endpoint)
+  // learn genres for artists we have none for, by name (see genres.ts), no spotify calls needed
   const known = artistGenres();
-  const unknown = [...new Set(recent.flatMap((t) => t.artistIds.slice(0, 1)))].filter((id) => !known.has(id)).slice(0, 20);
-  for (const id of unknown) {
-    try {
-      upsertArtist(await spotify.artist(id));
-    } catch (e) {
-      console.warn("[history]", (e as Error).message);
-    }
-  }
+  const unknown = new Map<string, string>();
+  for (const t of recent) if (t.artistIds[0] && !known.get(t.artistIds[0])?.length) unknown.set(t.artistIds[0], t.artists[0]);
+  const found = await fillGenres([...unknown].slice(0, 20).map(([id, name]) => ({ id, name, genres: [] as string[] })));
+  found.forEach(upsertArtist);
   return added;
 }
 

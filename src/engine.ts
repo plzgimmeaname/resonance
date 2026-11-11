@@ -1,6 +1,7 @@
 import { localTime, uid } from "./context.js";
 import { artistGenres, db, feedback, upsertArtist } from "./db.js";
 import { askClaude, concertsFor, similarArtists, upcomingEvents, type ConcertEvent } from "./extras.js";
+import { fillGenres } from "./genres.js";
 import { spotify } from "./spotify.js";
 import type { Artist, Range, Release, Track } from "./types.js";
 
@@ -48,6 +49,8 @@ export async function buildTaste(): Promise<Taste> {
     }),
   );
   const recent = await settle(spotify.recent(50), []);
+  // spotify no longer sends genres, see genres.ts
+  await fillGenres(RANGES.flatMap((r) => artists[r]));
   RANGES.forEach((r) => artists[r].forEach(upsertArtist));
 
   const rangeGenres = Object.fromEntries(RANGES.map((r) => [r, genreMap(artists[r])])) as Record<Range, Map<string, number>>;

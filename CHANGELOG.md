@@ -20,6 +20,8 @@
 - The share image was redrawn to match the new persona card.
 
 ### Fixed
+- Genres were empty everywhere (top genres, persona, taste drift, Discover, the feed, playlist fit and suggestions): Spotify stopped sending artist genres to developer apps in 2026, and artists were saved as "no genres" for good. Genres now come from Last.fm tags when a Last.fm key is set, otherwise from MusicBrainz (free, no key). Each artist is looked up once and cached; artists neither source knows are retried after 30 days. Learning genres no longer costs a Spotify call per artist.
+- Album art, avatars and previews didn't load once the service worker was active: it re-fetched them itself, which the CSP blocks.
 - Signed-out visitors saw the app tabs, bell and avatar, and the admin login showed the admin tabs and Sign out. CSS `display` rules were overriding the `hidden` attribute.
 - The streak test failed between midnight and 06:00 UTC because it assumed "30 hours ago" was yesterday.
 - Hour-of-day and weekday charts, the "Right now" mode and the listening streak used the server's clock (UTC in Docker), so they were shifted for everyone else. The browser now sends its time zone offset and these use the user's own clock.

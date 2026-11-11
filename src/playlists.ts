@@ -1,4 +1,5 @@
 import { artistGenres, upsertArtist } from "./db.js";
+import { fillGenres } from "./genres.js";
 import type { Rec, Taste } from "./engine.js";
 import { spotify } from "./spotify.js";
 import type { PlaylistInfo, PlaylistTrack, Track } from "./types.js";
@@ -134,20 +135,18 @@ export async function applyClean(playlistId: string, tracks: PlaylistTrack[], re
 // learns genres for the artists in a playlist that we haven't seen, most common first. returns how many are still unknown
 export async function ensureGenres(tracks: PlaylistTrack[], limit = 60): Promise<number> {
   const known = artistGenres();
-  const freq = new Map<string, number>();
-  for (const t of tracks) for (const id of t.artistIds) if (id && !known.has(id)) freq.set(id, (freq.get(id) ?? 0) + 1);
-  const wanted = [...freq].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([id]) => id);
-  await Promise.all(
-    wanted.map(async (id) => {
-      try {
-        upsertArtist(await spotify.artist(id));
-      } catch (e) {
-        if ((e as Error).message === "not_connected") throw e;
-        console.warn("[playlists]", (e as Error).message);
-      }
-    }),
-  );
-  return freq.size - wanted.length;
+  const freq = new Map<string, { name: string; n: number }>();
+  for (const t of tracks) {
+    t.artistIds.forEach((id, i) => {
+      if (!id || known.get(id)?.length) return;
+      const f = freq.get(id) ?? { name: t.artists[i] ?? t.artists[0], n: 0 };
+      f.n++;
+      freq.set(id, f);
+    });
+  }
+  const wanted = [...freq].sort((a, b) => b[1].n - a[1].n).slice(0, limit).map(([id, f]) => ({ id, name: f.name, genres: [] as string[] }));
+  (await fillGenres(wanted, 10_000)).forEach(upsertArtist);
+  return wanted.filter((a) => !a.genres.length).length + freq.size - wanted.length;
 }
 
 // songs that fit the playlist's genres, from artists the listener doesn't already have in it

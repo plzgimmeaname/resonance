@@ -4,6 +4,7 @@ import { afterEach, test } from "node:test";
 import { runAs } from "../src/context.js";
 import { artistGenres, db } from "../src/db.js";
 import { analyzePlaylist, analyzeTracks, applyClean, ensureGenres, planClean, suggest } from "../src/playlists.js";
+import { saveSettings } from "../src/settings.js";
 import { hasPlaylistEdit, spotify } from "../src/spotify.js";
 import type { PlaylistTrack } from "../src/types.js";
 import { addUser, artist, spotifyTrack, stubFetch, taste } from "./fixtures.js";
@@ -285,16 +286,17 @@ test("nothing to do means no spotify calls", async () => {
 test("genres are learned for unknown artists, most common first, up to the limit", async () => {
   db.prepare("insert into artists(id, name, genres) values('known1', 'Known', '[\"rock\"]')").run();
   const tracks = [pt("a", "Known", 0), pt("b", "Often", 1), pt("c", "Often", 2), pt("d", "Rare", 3), pt("e", "Rarer", 4)].map((t) => (t.artists[0] === "Known" ? { ...t, artistIds: ["known1"] } : t));
-  stub = stubFetch((url) => {
-    const id = url.pathname.split("/").pop()!;
-    return { id, name: id, genres: [`g-${id}`], images: [] };
-  });
+  // genres come from last.fm by artist name now, spotify isn't asked (see src/genres.ts)
+  saveSettings({ lastfm: "key" });
+  stub = stubFetch((url) => ({ toptags: { tag: [{ name: `g-${url.searchParams.get("artist")!.toLowerCase()}`, count: 100 }] } }));
   const left = await as(() => ensureGenres(tracks, 2));
-  const fetched = stub.calls.map((u) => u.pathname.split("/").pop()).sort();
-  assert.deepEqual(fetched.includes("often"), true, "the artist with two songs comes first");
+  saveSettings({ lastfm: "" });
+  const fetched = stub.calls.map((u) => u.searchParams.get("artist")).sort();
+  assert.deepEqual(fetched.includes("Often"), true, "the artist with two songs comes first");
   assert.equal(fetched.length, 2);
+  assert.ok(stub.calls.every((u) => u.hostname === "ws.audioscrobbler.com"));
   assert.equal(left, 1, "one unknown artist is left for next time");
-  assert.deepEqual(artistGenres().get("often"), ["g-often"]);
+  assert.deepEqual(artistGenres().get("often"), ["g often"]);
 });
 
 test("suggestions fit the playlist's genres and skip what it has, disliked artists, and a third song by one artist", async () => {
@@ -335,15 +337,13 @@ test("analysing a playlist ties it together: tracks, genres learned along the wa
   stub = stubFetch((url) => {
     const p = url.pathname;
     if (p.endsWith("/items")) return { items, total: items.length, next: null };
-    if (p.includes("/artists/")) {
-      const id = p.split("/").pop()!;
-      return { id, name: id, genres: id === "ar20" ? ["opera"] : ["rock"], images: [] };
-    }
+    if (url.hostname === "ws.audioscrobbler.com") return { toptags: { tag: [{ name: url.searchParams.get("artist") === "Artist 20" ? "opera" : "rock", count: 100 }] } };
     if (p.endsWith("/search")) return { tracks: { items: [spotifyTrack("Suggested", "Fresh")] } };
     return {};
   });
   const info = { id: "plY", name: "Mix", tracks: items.length, owned: true, collaborative: false, public: false };
-  const out = await runAs("pl2", () => analyzePlaylist(info, taste({ all: [artist("Fan", ["rock"])] })));
+  saveSettings({ lastfm: "key" });
+  const out = await runAs("pl2", () => analyzePlaylist(info, taste({ all: [artist("Fan", ["rock"])] }))).finally(() => saveSettings({ lastfm: "" }));
   assert.equal(out.total, items.length);
   assert.equal(out.canMerge, true);
   assert.equal(out.duplicates, 1);

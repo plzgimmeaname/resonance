@@ -51,7 +51,8 @@ export function kvSet(k: string, v: unknown) {
 
 export function upsertArtist(a: { id: string; name: string; genres: string[]; image?: string }) {
   db.prepare(
-    "insert into artists(id, name, genres, image) values(?,?,?,?) on conflict(id) do update set name=excluded.name, genres=excluded.genres, image=coalesce(excluded.image, image)",
+    // an empty list never replaces genres we already have (a lookup that timed out sends one)
+    "insert into artists(id, name, genres, image) values(?,?,?,?) on conflict(id) do update set name=excluded.name, genres=case when excluded.genres = '[]' then genres else excluded.genres end, image=coalesce(excluded.image, image)",
   ).run(a.id, a.name, JSON.stringify(a.genres), a.image ?? null);
 }
 
