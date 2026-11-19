@@ -2,9 +2,13 @@ import "./setup.js";
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { artistGenres, db, upsertArtist } from "../src/db.js";
-import { cachedGenres, cleanTags, fillGenres, lookupGenres } from "../src/genres.js";
+import { runAs } from "../src/context.js";
+import { cachedGenres, cleanTags, fillGenres, genreTracks, lookupGenres } from "../src/genres.js";
 import { saveSettings } from "../src/settings.js";
-import { stubFetch } from "./fixtures.js";
+import { addUser, spotifyTrack, stubFetch } from "./fixtures.js";
+
+addUser("g1");
+const as = <T>(fn: () => T) => runAs("g1", fn);
 
 let stub: ReturnType<typeof stubFetch> | null = null;
 afterEach(() => {
@@ -95,4 +99,54 @@ test("an empty genre list never wipes genres an artist already has", () => {
   assert.deepEqual(artistGenres().get("keep1"), ["folk"]);
   upsertArtist({ id: "keep1", name: "Keep", genres: ["folk rock"] });
   assert.deepEqual(artistGenres().get("keep1"), ["folk rock"]);
+});
+
+test("genre songs come from last.fm's top tracks for the tag: one per artist, avoided artists skipped, lookups cached", async () => {
+  saveSettings({ lastfm: "key" });
+  const top = [
+    { name: "Alpha", artist: { name: "Band A" } }, { name: "Alpha 2", artist: { name: "Band A" } },
+    { name: "Beta", artist: { name: "Band B" } }, { name: "Gamma", artist: { name: "Known" } }, { name: "Delta", artist: { name: "Band D" } },
+  ];
+  stub = stubFetch((url) => {
+    if (url.hostname === "ws.audioscrobbler.com") return { tracks: { track: url.searchParams.get("tag") === "dreamgaze" ? top : [] } };
+    const q = url.searchParams.get("q") ?? "";
+    assert.ok(!q.startsWith("genre:"), "spotify's genre search isn't used when last.fm has songs");
+    const m = q.match(/^track:"(.+)" artist:"(.+)"$/)!;
+    // spotify's best match for Delta is a cover by someone else
+    return { tracks: { items: [spotifyTrack(m[1], m[2] === "Band D" ? "Cover Band" : m[2])] } };
+  });
+  const got = await as(() => genreTracks("Dreamgaze", 10, (a) => a === "known"));
+  const names = got.map((x) => x.artists[0]).sort();
+  assert.deepEqual(names, ["Band A", "Band B"], "one song per artist, the avoided one and the cover left out");
+  const spotifyCalls = stub.calls.filter((u) => u.hostname !== "ws.audioscrobbler.com").length;
+  assert.equal(spotifyCalls, 3);
+
+  await as(() => genreTracks("dreamgaze", 10, (a) => a === "known"));
+  assert.equal(stub.calls.filter((u) => u.hostname === "ws.audioscrobbler.com").length, 1, "the tag's list is cached");
+  assert.ok(stub.calls.filter((u) => u.hostname !== "ws.audioscrobbler.com").length <= spotifyCalls + 1, "looked-up songs are cached");
+});
+
+test("without last.fm songs, genre picks fall back to spotify's search", async () => {
+  stub = stubFetch((url) => {
+    assert.notEqual(url.hostname, "ws.audioscrobbler.com");
+    return { tracks: { items: [spotifyTrack("Fallback", "Someone")] } };
+  });
+  const got = await as(() => genreTracks("nowhere", 5));
+  assert.deepEqual(got.map((x) => x.name), ["Fallback"]);
+  assert.match(stub.calls[0].searchParams.get("q")!, /^genre:"nowhere"$/);
+});
+
+test("a genre pick looks up at most three new songs on spotify per call, cached ones are free", async () => {
+  saveSettings({ lastfm: "key" });
+  const top = Array.from({ length: 12 }, (_, i) => ({ name: `Song ${i}`, artist: { name: `Artist ${i}` } }));
+  stub = stubFetch((url) => {
+    if (url.hostname === "ws.audioscrobbler.com") return { tracks: { track: top } };
+    const m = (url.searchParams.get("q") ?? "").match(/^track:"(.+)" artist:"(.+)"$/)!;
+    return { tracks: { items: [spotifyTrack(m[1], m[2])] } };
+  });
+  const lookups = () => stub!.calls.filter((u) => u.hostname !== "ws.audioscrobbler.com").length;
+  assert.equal((await as(() => genreTracks("capped", 8))).length, 3);
+  assert.equal(lookups(), 3);
+  assert.equal((await as(() => genreTracks("capped", 8))).length, 6, "three from the cache plus three new");
+  assert.equal(lookups(), 6);
 });

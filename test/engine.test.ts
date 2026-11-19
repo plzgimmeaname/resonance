@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { runAs } from "../src/context.js";
 import { addFeedback } from "../src/db.js";
-import { buildTaste, compare, computeStats, exportTaste, recommend } from "../src/engine.js";
+import { saveSettings } from "../src/settings.js";
+import { buildFeed, buildTaste, compare, computeStats, exportTaste, recommend } from "../src/engine.js";
 import { addUser, artist, spotifyTrack, stubFetch, taste, track } from "./fixtures.js";
 
 addUser("u1");
@@ -93,4 +94,33 @@ test("recommendations skip known songs and disliked artists, and cap each artist
   assert.deepEqual(names.filter((n) => ["One", "Two", "Three"].includes(n)).length, 2);
   assert.ok(names.includes("Deep Cut"), "more from a favourite is allowed");
   for (const n of ["Old Hit", "Fav Song", "Bad", "Cover"]) assert.ok(!names.includes(n), `${n} is filtered`);
+});
+
+test("the feed has new releases from unheard artists similar to your favourites", async () => {
+  saveSettings({ lastfm: "key" });
+  const t = taste({ all: [artist("Fav", ["shoegaze"])] });
+  const recent = new Date(Date.now() - 5 * 864e5).toISOString().slice(0, 10);
+  stub = stubFetch((url) => {
+    if (url.hostname === "ws.audioscrobbler.com") {
+      if (url.searchParams.get("method") === "artist.getsimilar") return { similarartists: { artist: [{ name: "Fav" }, { name: "Cousin" }] } };
+      return {};
+    }
+    const p = url.pathname;
+    if (p === "/v1/artists/cousin/albums") return { items: [
+      { id: "new1", name: "Fresh EP", artists: [{ name: "Cousin" }], images: [], release_date: recent, album_type: "single" },
+      { id: "old1", name: "Old LP", artists: [{ name: "Cousin" }], images: [], release_date: "2019-01-01", album_type: "album" },
+    ] };
+    if (p.includes("/albums")) return { items: [] };
+    if ((url.searchParams.get("q") ?? "") === 'artist:"Cousin"') return { tracks: { items: [spotifyTrack("Cousin Song", "Cousin")] } };
+    return { tracks: { items: [] }, items: [] };
+  });
+  try {
+    const feed = await as(() => buildFeed(t));
+    const rels = feed.filter((i) => i.type === "release");
+    assert.deepEqual(rels.map((r) => r.type === "release" && r.release.name), ["Fresh EP"]);
+    assert.match((rels[0] as { reason: string }).reason, /^Just out from Cousin, similar to Fav$/);
+    assert.ok(!stub.calls.some((u) => (u.searchParams.get("q") ?? "").includes("tag:new")), "the dead new-albums search is gone");
+  } finally {
+    saveSettings({ lastfm: "" });
+  }
 });

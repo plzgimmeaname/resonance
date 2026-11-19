@@ -5,7 +5,8 @@
  */
 import { db } from "./db.js";
 import { getSetting } from "./settings.js";
-import type { Artist } from "./types.js";
+import { spotify } from "./spotify.js";
+import type { Artist, Track } from "./types.js";
 
 db.exec("create table if not exists genre_cache(name text primary key, genres text not null, source text, checked_at integer)");
 
@@ -131,4 +132,90 @@ export async function fillGenres<T extends Pick<Artist, "name" | "genres">>(arti
   await Promise.race([all, new Promise((r) => setTimeout(r, budgetMs).unref?.())]);
   for (const a of missing) a.genres = done.get(a.name) ?? cachedGenres(a.name) ?? [];
   return artists;
+}
+
+/*
+ * Songs for a genre. Spotify's genre: search filter barely matches the genre any more, so with a Last.fm key the
+ * picks come from the tag's top tracks on Last.fm (cached a week) and are looked up on Spotify one by one
+ * (each lookup cached a month). Without a key, or when Last.fm has nothing, it falls back to Spotify's search.
+ */
+db.exec("create table if not exists genre_tracks(genre text primary key, tracks text not null, checked_at integer)");
+db.exec("create table if not exists track_lookup(key text primary key, track text, checked_at integer)");
+const TAG_TTL_MS = 7 * 864e5;
+const LOOKUP_TTL_MS = 30 * 864e5;
+
+type Song = { name: string; artist: string };
+const getTag = db.prepare("select tracks, checked_at from genre_tracks where genre = ?");
+const putTag = db.prepare("insert into genre_tracks(genre, tracks, checked_at) values(?,?,?) on conflict(genre) do update set tracks=excluded.tracks, checked_at=excluded.checked_at");
+const getLookup = db.prepare("select track, checked_at from track_lookup where key = ?");
+const putLookup = db.prepare("insert into track_lookup(key, track, checked_at) values(?,?,?) on conflict(key) do update set track=excluded.track, checked_at=excluded.checked_at");
+
+export async function tagTopTracks(genre: string): Promise<Song[]> {
+  const g = genre.toLowerCase();
+  const row = getTag.get(g) as { tracks: string; checked_at: number } | undefined;
+  if (row && Date.now() - row.checked_at < TAG_TTL_MS) return JSON.parse(row.tracks);
+  const key = getSetting("lastfm");
+  if (!key) return [];
+  const u = new URL("https://ws.audioscrobbler.com/2.0/");
+  u.search = new URLSearchParams({ method: "tag.gettoptracks", tag: g, limit: "100", api_key: key, format: "json" }).toString();
+  try {
+    const r = await fetch(u, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) return row ? JSON.parse(row.tracks) : [];
+    const d: any = await r.json();
+    const songs: Song[] = (d.tracks?.track ?? []).map((x: any) => ({ name: String(x.name), artist: String(x.artist?.name ?? "") })).filter((s: Song) => s.name && s.artist);
+    putTag.run(g, JSON.stringify(songs), Date.now());
+    return songs;
+  } catch (e) {
+    console.warn("[genres] top tracks", genre, (e as Error).message);
+    return row ? JSON.parse(row.tracks) : [];
+  }
+}
+
+// a cached lookup: the track, null when spotify didn't have it, undefined when it hasn't been looked up lately
+function cachedTrack(s: Song): Track | null | undefined {
+  const row = getLookup.get(`${s.name}|${s.artist}`.toLowerCase()) as { track: string | null; checked_at: number } | undefined;
+  if (!row || Date.now() - row.checked_at >= LOOKUP_TTL_MS) return undefined;
+  return row.track ? JSON.parse(row.track) : null;
+}
+
+async function lookupTrack(s: Song): Promise<Track | null> {
+  const t = await spotify.findTrack(s.name, s.artist);
+  // only keep a hit by the same artist, spotify's fuzzy match is sometimes a cover
+  const hit = t && t.artists.some((a) => a.toLowerCase() === s.artist.toLowerCase()) ? t : null;
+  putLookup.run(`${s.name}|${s.artist}`.toLowerCase(), hit ? JSON.stringify(hit) : null, Date.now());
+  return hit;
+}
+
+// spotify's dev-mode rate limit is tight, so each call looks up only a few songs it hasn't seen; the cache fills over visits
+const NEW_LOOKUPS = 3;
+
+/** Up to `limit` songs in a genre, one per artist, skipping artists `avoid` returns true for. */
+export async function genreTracks(genre: string, limit = 8, avoid: (artist: string) => boolean = () => false): Promise<Track[]> {
+  const pool = (await tagTopTracks(genre)).filter((s) => !avoid(s.artist.toLowerCase().trim()));
+  if (!pool.length) return spotify.searchTracks({ genre }, 10);
+  // shuffle so each build shows different songs
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const out: Track[] = [];
+  const toLookUp: Song[] = [];
+  const artists = new Set<string>();
+  for (const s of pool) {
+    if (out.length + toLookUp.length >= limit) break;
+    const a = s.artist.toLowerCase();
+    if (artists.has(a)) continue;
+    const c = cachedTrack(s);
+    if (c === null) continue;
+    if (c) out.push(c);
+    else if (toLookUp.length < NEW_LOOKUPS) toLookUp.push(s);
+    else continue;
+    artists.add(a);
+  }
+  const found = await Promise.all(toLookUp.map((s) => lookupTrack(s).catch((e) => {
+    if ((e as Error).message === "not_connected") throw e;
+    return null;
+  })));
+  out.push(...found.filter((t): t is Track => Boolean(t)));
+  return out.length ? out : spotify.searchTracks({ genre }, 10);
 }

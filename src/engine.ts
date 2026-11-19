@@ -1,7 +1,7 @@
 import { localTime, uid } from "./context.js";
 import { artistGenres, db, feedback, upsertArtist } from "./db.js";
 import { askClaude, concertsFor, similarArtists, upcomingEvents, type ConcertEvent } from "./extras.js";
-import { fillGenres } from "./genres.js";
+import { fillGenres, genreTracks } from "./genres.js";
 import { spotify } from "./spotify.js";
 import type { Artist, Range, Release, Track } from "./types.js";
 
@@ -246,7 +246,7 @@ export async function recommend(t: Taste, mode: RecMode = "similar"): Promise<Re
 
   for (const [genre, w] of seeds) {
     jobs.push(
-      settle(spotify.searchTracks({ genre }, 10), []).then((ts) =>
+      settle(genreTracks(genre, 8, (a) => t.knownArtists.has(a) || t.dislikedArtists.has(a)), []).then((ts) =>
         ts.map((track) => ({ track, genre, reason: label(genre), score: w / maxW + Math.random() * 0.3 })),
       ),
     );
@@ -302,8 +302,8 @@ export type FeedItem =
 const RECENT_DAYS = 45;
 const parseDate = (d: string) => Date.parse(d.length === 4 ? `${d}-01-01` : d.length === 7 ? `${d}-01` : d);
 
-// tracks from unheard artists that last.fm lists as similar to your top artists
-async function similarArtistItems(t: Taste): Promise<FeedItem[]> {
+// tracks from unheard artists that last.fm lists as similar to your top artists, plus their releases from the last few weeks
+async function similarArtistItems(t: Taste): Promise<{ tracks: FeedItem[]; releases: FeedItem[] }> {
   const favs = [...t.artists.short.slice(0, 6), ...t.artists.long.slice(0, 6)].filter((a, i, l) => l.findIndex((x) => x.id === a.id) === i);
   const claimed = new Set<string>();
   const perFav = await Promise.all(
@@ -322,12 +322,23 @@ async function similarArtistItems(t: Taste): Promise<FeedItem[]> {
   }
   const found = await Promise.all(picks.map((p) => settle(spotify.searchTracks({ artist: p.name }, 5), [])));
   const seen = new Set<string>();
-  return found.flatMap((ts, i) =>
+  const tracks = found.flatMap((ts, i) =>
     ts
       .filter((x) => norm(x.artists[0]) === norm(picks[i].name) && !t.knownTracks.has(trackKey(x)) && !seen.has(trackKey(x)) && seen.add(trackKey(x)))
       .slice(0, 2)
       .map((track): FeedItem => ({ type: "track", track, reason: `Similar to ${picks[i].from}: ${picks[i].name}`, artist: picks[i].name, src: "simartist" })),
   );
+  // the artist id comes free with their songs; check the first dozen for anything new
+  const cutoff = Date.now() - RECENT_DAYS * 864e5;
+  const withId = picks
+    .map((p, i) => ({ ...p, id: found[i].find((x) => norm(x.artists[0]) === norm(p.name))?.artistIds[0] }))
+    .filter((p): p is typeof p & { id: string } => Boolean(p.id))
+    .slice(0, 12);
+  const rels = await Promise.all(withId.map((p) => settle(spotify.artistReleases(p.id), [])));
+  const releases = rels.flatMap((rs, i) =>
+    rs.filter((r) => parseDate(r.releaseDate) > cutoff).map((release): FeedItem => ({ type: "release", release, reason: `Just out from ${withId[i].name}, similar to ${withId[i].from}` })),
+  );
+  return { tracks, releases };
 }
 
 export async function buildFeed(t: Taste): Promise<FeedItem[]> {
@@ -342,14 +353,6 @@ export async function buildFeed(t: Taste): Promise<FeedItem[]> {
         .map((release) => ({ type: "release" as const, release, reason: `New from ${a.name}, one of your top artists` })),
     ),
   );
-  for (const [genre] of topGenres(t, 2)) {
-    relJobs.push(
-      settle(spotify.searchNewAlbums(genre), []).then((rs) =>
-        rs.filter((r) => !t.dislikedArtists.has(norm(r.artists[0]))).map((release) => ({ type: "release" as const, release, reason: `Fresh ${genre} release` })),
-      ),
-    );
-  }
-
   const eventJobs = [...favs.values()].slice(0, 12).map((a) => settle(upcomingEvents(a.name), []));
 
   const [relAll, recs, adv, deep, events, simArtists] = await Promise.all([
@@ -358,14 +361,13 @@ export async function buildFeed(t: Taste): Promise<FeedItem[]> {
     settle(recommend(t, "adventurous"), []),
     settle(recommend(t, "deepcuts"), []),
     Promise.all(eventJobs),
-    settle(similarArtistItems(t), []),
+    settle(similarArtistItems(t), { tracks: [], releases: [] }),
   ]);
   const seenRel = new Set<string>();
-  const releases = relAll
-    .flat()
-    .filter((r): r is Extract<FeedItem, { type: "release" }> => r.type === "release")
-    .sort((a, b) => b.release.releaseDate.localeCompare(a.release.releaseDate))
-    .filter((r) => !seenRel.has(r.release.id) && seenRel.add(r.release.id));
+  const byDate = (list: FeedItem[]) =>
+    list.filter((r): r is Extract<FeedItem, { type: "release" }> => r.type === "release").sort((a, b) => b.release.releaseDate.localeCompare(a.release.releaseDate));
+  // your own artists' releases first, then ones from similar artists
+  const releases = [...byDate(relAll.flat()), ...byDate(simArtists.releases).slice(0, 8)].filter((r) => !seenRel.has(r.release.id) && seenRel.add(r.release.id));
 
   const recentKeys = new Set([...t.tracks.short, ...t.recent].map(trackKey));
   const throwbacks: FeedItem[] = t.tracks.long
@@ -386,7 +388,7 @@ export async function buildFeed(t: Taste): Promise<FeedItem[]> {
   const deepItems = asItems(deep, "deepcuts").slice(0, 10);
   const eventItems: FeedItem[] = events.flat().slice(0, 6).map((event) => ({ type: "event", event }));
 
-  const queues = [releases, recItems.slice(0, 14), recItems.slice(14), throwbacks, insights, eventItems, advItems, deepItems, simArtists.sort(() => Math.random() - 0.5).slice(0, 24)].map((q) => [...q]);
+  const queues = [releases, recItems.slice(0, 14), recItems.slice(14), throwbacks, insights, eventItems, advItems, deepItems, simArtists.tracks.sort(() => Math.random() - 0.5).slice(0, 24)].map((q) => [...q]);
   const pattern = [0, 1, 8, 6, 2, 3, 8, 5, 7, 1, 4, 8, 0, 6, 2, 7];
   const feed: FeedItem[] = [];
   while (queues.some((q) => q.length) && feed.length < 90) {
@@ -452,7 +454,7 @@ export function compare(t: Taste, other: TasteCode) {
 
 // shared-genre tracks by unheard artists
 export async function blendTracks(t: Taste, genres: string[]): Promise<Rec[]> {
-  const results = await Promise.all(genres.slice(0, 4).map((genre) => settle(spotify.searchTracks({ genre }, 10), []).then((ts) => ts.map((track) => ({ track, genre, reason: `Shared taste: ${genre}`, score: Math.random() })))));
+  const results = await Promise.all(genres.slice(0, 4).map((genre) => settle(genreTracks(genre, 8, (a) => t.dislikedArtists.has(a)), []).then((ts) => ts.map((track) => ({ track, genre, reason: `Shared taste: ${genre}`, score: Math.random() })))));
   const seen = new Set<string>();
   return results.flat().filter((r) => !t.knownTracks.has(trackKey(r.track)) && !seen.has(r.track.id) && seen.add(r.track.id)).slice(0, 25);
 }

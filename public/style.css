@@ -246,6 +246,8 @@ a.tile:hover { text-decoration: none; }
 
 /* ---------------------------------------------------------------- stats */
 .statgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 16px; }
+/* six tiles split 3 + 3 instead of 5 + 1 */
+@media (min-width: 721px) { .statgrid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(3, 1fr); } }
 .stat { background: var(--surface); border-radius: var(--r-lg); padding: 18px 20px; }
 .stat .n { font-size: 34px; font-weight: 700; letter-spacing: -.035em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .stat .l { color: var(--muted); font-size: 13px; margin-top: 4px; }

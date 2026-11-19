@@ -3,11 +3,11 @@ import { actions, api, autoplayOn, cover, eventItem, handleErr, isPlaying, stopP
 
 // feed filters: each item belongs to one category, chips only show categories that have items
 const FEED_FILTERS = [
-  ["all", "All"], ["artists", "New from your artists"], ["genre", "Fresh in your genres"], ["similar", "Recommended"], ["simartist", "Similar artists"],
+  ["all", "All"], ["artists", "New from your artists"], ["simrel", "New from similar artists"], ["similar", "Recommended"], ["simartist", "Similar artists"],
   ["adventurous", "Adventurous"], ["deepcuts", "Deep cuts"], ["throwback", "Throwbacks"], ["event", "Concerts"], ["insight", "Insights"],
 ];
 function feedCategory(i) {
-  if (i.type === "release") return i.reason.startsWith("New from") ? "artists" : "genre";
+  if (i.type === "release") return i.reason.startsWith("New from") ? "artists" : "simrel";
   if (i.type === "track") return i.src || "similar";
   return i.type;
 }

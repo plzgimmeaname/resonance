@@ -134,19 +134,22 @@ The backup file has Spotify tokens, API keys and the admin password stripped out
 
 ## Tips
 
-- **Song previews**: every song has a **▶ Preview** button that plays a 30-second clip. Spotify no longer provides clips to new apps, so Resonance looks the song up on Apple's free iTunes catalog when you click. A few songs have no clip and show "No preview".
+- **Song previews**: every song has a play button that plays a 30-second clip. Spotify no longer provides clips to new apps, so Resonance looks the song up on Apple's free iTunes catalog when you click. A few songs have no clip and show "No preview".
 - **Stats look empty?** Spotify only reveals your last 50 plays, so Resonance keeps its own record *while it's running*. Leave it running while you listen and your history builds up. "Right now" recommendations and "Taste over time" get better after a few days.
 - **Refine your playlists**: open the **Playlists** tab and pick one. Resonance flags duplicates (the same track twice, or another version of the same song) and songs that don't match the rest of the playlist's genres, and suggests songs that would fit. Tick what you want gone and press **Apply to playlist**. Exact duplicates are merged into one copy that stays where the first one was, and **Undo** (right after) adds removed songs back at the end. **Save cleaned copy** makes a new playlist and leaves the original alone. "Fits" is judged by genre only, since Spotify no longer shares audio data with new apps. Spotify only lets apps open playlists you own or collaborate on. If you signed in before this tab existed, it asks you to **Allow playlist editing** once (a new Spotify permission).
 - **Import your full history**: request your data at https://www.spotify.com/account/privacy/ (pick **Extended streaming history** for everything, or **Account data** for the last year), unzip it when Spotify emails you, then go to **/import** (there's a link on the Stats tab) and pick the `Streaming_History_Audio_*.json` or `StreamingHistory_music_*.json` files. Plays you already have are skipped, so importing twice is safe.
 - **New releases**: twice a day Resonance checks your top artists for anything released in the last two weeks and shows it under the 🔔 at the top. It only checks while the app is running.
 - **Recommendations feel off?** Use 👍 and 👎. It learns what you like, and 👎 hides that artist.
 - **Feed**: scroll through it one card at a time; songs autoplay as they come into view (toggle with the Autoplay button) and move on when the clip ends. Browsers may need one click on the page first.
-- **Add to a playlist**: every song has a **＋ Playlist** button that adds it to one of your existing playlists.
-- **Saving or adding to a playlist didn't work?** Click **sign out** (top right) and connect again so Spotify can ask for playlist permission.
+- **Add to a playlist**: every song has a **＋** button that adds it to one of your existing playlists.
+- **Saving or adding to a playlist didn't work?** Open the account menu (your picture, top right), click **Sign out** and connect again so Spotify can ask for playlist permission.
 - **Blend with a friend**: copy your code from the Blend tab and send it to them, then paste theirs. It works between people on different copies of the app too.
-- **Your data**: **delete my data** (top right) wipes your history, votes and account from the site.
+- **Your data**: **Delete my data** in the account menu (top right) wipes your history, votes and account from the site.
 - **Limit**: Spotify development-mode apps allow 5 users. More than that needs Spotify's approval, which they only give to registered businesses.
 - **Share your stats**: the **Share card** button on the Stats tab downloads a picture. **Share link** makes a page with a snapshot of your persona, top artists, songs and genres, plus a **Blend with me** button. It doesn't update on its own (make a new link to refresh it, and the old one stops working), and **Turn off** deletes it. Other people can only open it if your copy is reachable from the internet (see "Seeing accounts from other copies" for the tunnel idea).
+- **Light or dark**: pick Light, Dark or Automatic (follows your system) in the account menu. It's remembered per browser.
+- **Keyboard shortcuts**: number keys switch tabs, `j`/`k` move through the feed, space plays the current card, `/` jumps to the vibe box. Press `?` for the full list.
+- **Genres**: Spotify no longer tells apps an artist's genres, so Resonance gets them from MusicBrainz (free, no key, a little slow the first time) or from Last.fm if you add a key. Each artist is looked up once and remembered.
 - **Install it like an app**: in Chrome or Edge, click the install icon in the address bar.
 
 ---
@@ -181,7 +184,7 @@ Reporting sends only a Spotify name and ID, join and last-seen times and a play 
 
 Add these in the admin panel under **Settings** to switch on more features:
 
-- **Last.fm API key**: more "fans of X also like Y" recommendations (free at https://www.last.fm/api)
+- **Last.fm API key** (recommended, free at https://www.last.fm/api): "fans of X also like Y" recommendations, new releases from artists similar to yours in the feed, better genre picks (songs come from Last.fm's most-played tracks for each genre instead of Spotify's weak genre search), and faster, more accurate genres
 - **Ticketmaster API key** (plus city and country): shows concerts from your top artists in the feed (free at https://developer.ticketmaster.com)
 - **Anthropic API key**: adds a "Why?" button that explains each recommendation, and a short summary of your taste
 
@@ -196,7 +199,7 @@ Add these in the admin panel under **Settings** to switch on more features:
 - `src/engine.ts`: taste profile, stats, recommendations, feed, blend
 - `src/history.ts`: background play-history collector
 - `src/db.ts`: SQLite storage (`data/resonance.db`); `src/context.ts`: which user a request belongs to
-- `src/extras.ts`: optional Last.fm / Ticketmaster / Claude
+- `src/extras.ts`: optional Last.fm / Ticketmaster / Claude; `src/genres.ts`: artist genres and songs per genre (Last.fm, MusicBrainz)
 - `src/importer.ts`: Spotify privacy-export import; `src/notify.ts`: new-release notifications; `src/share.ts`: public share links (`/s/:token`, page in `public/share.html`)
 - `src/limit.ts`: rate limiting (240 API requests a minute per user, 20 for refreshes, Claude and blend)
 - `Dockerfile`, `docker-compose.yml`: container setup (listens on `HOST`, default `127.0.0.1`)
@@ -206,7 +209,7 @@ Add these in the admin panel under **Settings** to switch on more features:
   - `app/main.js`, `admin/main.js`: route tables and sign-in guards; `app/shared.js`, `admin/shared.js`: api calls and pieces several pages use
   - adding a page: drop `name.html` + `name.js` into a pages folder, add it to the list in `main.js` and to the matching `app.get([...])` in `src/server.ts` or `src/admin.ts`
 
-Spotify removed several API features for new apps (recommendations, audio features, popularity, batch lookups) and caps search at 10 results. Resonance builds recommendations from your genre profile plus search, filtered against what you already play. `npm test` runs the tests in `test/` (Node's built-in runner, each file gets its own temporary database and Spotify is stubbed), `npm run typecheck` checks the TypeScript including the tests, and `npm run build` compiles it to `dist/` (this needs Node.js 22.5 or newer; Docker users don't need it). CI runs all three plus `npm audit` and a Docker build. `src/remote.ts`: reporting between copies.
+Spotify removed several API features for new apps (recommendations, audio features, artist genres, popularity, previews, batch lookups, new-release search) and caps search at 10 results. Resonance builds recommendations from your genre profile, Last.fm's top tracks per genre and similar artists, and search, filtered against what you already play. Genres come from Last.fm or MusicBrainz (`src/genres.ts`, cached in the database), previews from iTunes. `npm test` runs the tests in `test/` (Node's built-in runner, each file gets its own temporary database and Spotify is stubbed), `npm run typecheck` checks the TypeScript including the tests, and `npm run build` compiles it to `dist/` (this needs Node.js 22.5 or newer; Docker users don't need it). CI runs all three plus `npm audit` and a Docker build. `src/remote.ts`: reporting between copies.
 
 ## License
 

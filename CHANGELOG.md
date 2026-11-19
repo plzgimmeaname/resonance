@@ -18,9 +18,11 @@
 - Import: drag the history files onto the page, with a progress bar.
 - 👎 now confirms what it did ("less like X from now on").
 - The share image was redrawn to match the new persona card.
+- Feed: new releases from artists similar to your favourites (with a Last.fm key), under the "New from similar artists" filter. This replaces "Fresh in your genres", which had been empty since Spotify's new-release search stopped returning anything.
 
 ### Fixed
 - Genres were empty everywhere (top genres, persona, taste drift, Discover, the feed, playlist fit and suggestions): Spotify stopped sending artist genres to developer apps in 2026, and artists were saved as "no genres" for good. Genres now come from Last.fm tags when a Last.fm key is set, otherwise from MusicBrainz (free, no key). Each artist is looked up once and cached; artists neither source knows are retried after 30 days. Learning genres no longer costs a Spotify call per artist.
+- Genre-based songs (recommendations, adventurous mode, blend, playlist suggestions) were often off-genre, because Spotify's `genre:` search filter barely works for developer apps now. With a Last.fm key they come from Last.fm's most-played tracks for each genre, one per artist, looked up on Spotify. Lookups are cached for a month and each build looks up at most three new songs per genre, to stay under Spotify's rate limit. Without a key it still uses Spotify's search.
 - Album art, avatars and previews didn't load once the service worker was active: it re-fetched them itself, which the CSP blocks.
 - Signed-out visitors saw the app tabs, bell and avatar, and the admin login showed the admin tabs and Sign out. CSS `display` rules were overriding the `hidden` attribute.
 - The streak test failed between midnight and 06:00 UTC because it assumed "30 hours ago" was yesterday.
@@ -38,6 +40,8 @@
 - Taste codes from friends are validated and size capped before use.
 - Playlist ids and track URIs, vote values, vibes and Claude prompts are checked and length limited on the server.
 - Content-Security-Policy header: scripts and styles come from this site only, images and previews from https hosts.
+- Updated to Express 5, TypeScript 7 and dotenv 18.
+- README: themes, keyboard shortcuts, where genres come from, what the Last.fm key adds, and button names after the redesign. The admin overview's six tiles are laid out 3 + 3.
 - Docker health check on a new `/healthz` endpoint. The daily taste snapshot is dated in UTC.
 
 ### Added

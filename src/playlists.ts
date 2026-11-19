@@ -1,5 +1,5 @@
 import { artistGenres, upsertArtist } from "./db.js";
-import { fillGenres } from "./genres.js";
+import { fillGenres, genreTracks } from "./genres.js";
 import type { Rec, Taste } from "./engine.js";
 import { spotify } from "./spotify.js";
 import type { PlaylistInfo, PlaylistTrack, Track } from "./types.js";
@@ -162,7 +162,7 @@ export async function suggest(t: Taste, a: Analysis, existing: PlaylistTrack[]):
   const batches = await Promise.all(
     seeds.map(async ({ genre, label }) => {
       try {
-        return (await spotify.searchTracks({ genre }, 10)).map((track) => ({ track, genre, reason: label, score: 0 }));
+        return (await genreTracks(genre, 10, (x) => t.dislikedArtists.has(x))).map((track) => ({ track, genre, reason: label, score: 0 }));
       } catch (e) {
         if ((e as Error).message === "not_connected") throw e;
         console.warn("[playlists]", (e as Error).message);

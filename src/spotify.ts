@@ -205,10 +205,6 @@ export const spotify = {
     const t = d.tracks.items.filter(Boolean)[0];
     return t ? mapTrack(t) : null;
   },
-  async searchNewAlbums(genre: string): Promise<Release[]> {
-    const d = await call("GET", "/search", { q: `genre:"${genre}" tag:new`, type: "album", limit: 10 });
-    return d.albums.items.filter(Boolean).map(mapAlbum);
-  },
   async artistReleases(id: string): Promise<Release[]> {
     const d = await call("GET", `/artists/${id}/albums`, { include_groups: "album,single", limit: 10 });
     return d.items.map(mapAlbum);
